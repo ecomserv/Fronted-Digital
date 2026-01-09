@@ -1,4 +1,4 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener, ViewEncapsulation, ChangeDetectionStrategy } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, ViewEncapsulation, ChangeDetectionStrategy, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -1547,7 +1547,8 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private apiService: ApiService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private ngZone: NgZone
   ) {
     const initialData = this.pdfService.createNewQuote();
 
@@ -1573,15 +1574,25 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // Subscribe to form changes to trigger preview updates (immediate for updateOn: 'blur')
-    this.formSubscription = this.quoteForm.valueChanges
-      .subscribe((val) => {
-        this.formVersion.update(v => v + 1);
-        if (val.currency) {
-          this.currentCurrency.set(val.currency);
-        }
-        // Autosave on blur (since all controls are updateOn: 'blur')
+    // 1. VISUAL UPDATES: Only trigger when visual data changes (currency or items structure)
+    // We use valueChanges only for specific controls that affect layout/totals display
+    this.quoteForm.get('currency')?.valueChanges.subscribe(val => {
+      this.currentCurrency.set(val || 'PEN');
+      this.formVersion.update(v => v + 1);
+    });
+
+    this.itemsArray.valueChanges.subscribe(() => {
+      this.formVersion.update(v => v + 1);
+    });
+
+    // 2. SILENT PERSISTENCE: Save everything on blur, but OUTSIDE Angular Zone
+    // This prevents change detection from running when we just want to save to localStorage
+    this.ngZone.runOutsideAngular(() => {
+      this.quoteForm.valueChanges.subscribe(() => {
+        // This runs without triggering Angular's tick()
         this.saveData();
       });
+    });
 
     // Check for edit mode
     this.route.queryParams.subscribe(params => {

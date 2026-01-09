@@ -241,11 +241,19 @@ type ViewMode = 'list' | 'grid' | 'cards';
                       </div>
                       <div class="table-body">
                         <div class="table-row summary">
+                          <span>1</span>
+                          <span class="desc">{{ quote.firstItemDescription || 'Sin descripción' }}</span>
                           <span></span>
-                          <span class="desc">{{ quote.itemCount }} producto(s)</span>
                           <span></span>
-                          <span>{{ formatCurrency(quote.total, quote.currency) }}</span>
                         </div>
+                        @if (quote.itemCount > 1) {
+                          <div class="table-row more">
+                            <span></span>
+                            <span class="desc">+ {{ quote.itemCount - 1 }} producto(s) más</span>
+                            <span></span>
+                            <span></span>
+                          </div>
+                        }
                       </div>
                     </div>
 

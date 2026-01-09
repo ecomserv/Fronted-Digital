@@ -150,6 +150,7 @@ export interface QuoteSummary {
   currency: 'PEN' | 'USD';
   total: number;
   itemCount: number;
+  firstItemDescription: string | null;
   createdAt: string;
 }
 

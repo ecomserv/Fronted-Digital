@@ -521,6 +521,14 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       overscroll-behavior: none;
     }
 
+    @media (max-width: 768px) {
+      .quote-page {
+        height: auto !important;
+        min-height: 100%;
+        display: block;
+      }
+    }
+
     /* ============================================
        HEADER - Grande y accesible
        ============================================ */
@@ -1545,16 +1553,16 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       documentNumber: [initialData.documentNumber],
       currency: [initialData.currency],
       status: [initialData.status],
-      clientName: ['', Validators.required],
-      clientRuc: [''],
+      clientName: ['', { validators: [Validators.required], updateOn: 'blur' }],
+      clientRuc: ['', { updateOn: 'blur' }],
 
-      clientMobile: [''],
-      clientReference: [''],
-      clientAddress: [''],
-      clientEmail: ['', Validators.email],
-      atte: [''],
+      clientMobile: ['', { updateOn: 'blur' }],
+      clientReference: ['', { updateOn: 'blur' }],
+      clientAddress: ['', { updateOn: 'blur' }],
+      clientEmail: ['', { validators: [Validators.email], updateOn: 'blur' }],
+      atte: ['', { updateOn: 'blur' }],
       items: this.fb.array([]),
-      notes: [''],
+      notes: ['', { updateOn: 'blur' }],
       termsAndConditions: [initialData.termsAndConditions]
     });
 
@@ -1727,13 +1735,13 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   addItem(): void {
     const itemGroup = this.fb.group({
-      codigo: [''],
+      codigo: ['', { updateOn: 'blur' }],
       unidadMedida: ['UND'],
-      description: ['', Validators.required],
-      quantity: [1, [Validators.required, Validators.min(1)]],
-      unitPrice: [0, [Validators.required, Validators.min(0)]],
+      description: ['', { validators: [Validators.required], updateOn: 'blur' }],
+      quantity: [1, { validators: [Validators.required, Validators.min(1)], updateOn: 'blur' }],
+      unitPrice: [0, { validators: [Validators.required, Validators.min(0)] }],
       // New fields for IGV toggle logic
-      priceInput: [0, [Validators.required, Validators.min(0)]],
+      priceInput: [0, { validators: [Validators.required, Validators.min(0)], updateOn: 'blur' }],
       includesIgv: [false]
     });
 

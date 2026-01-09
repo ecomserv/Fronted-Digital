@@ -8,11 +8,12 @@ import { ApiService, CreateQuoteRequest } from '../../../core/services/api.servi
 import { ShareModalComponent } from '../../../shared/components/share-modal/share-modal.component';
 import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-preview.component';
 import { debounceTime } from 'rxjs/operators';
+import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
 @Component({
   selector: 'app-quote-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, ShareModalComponent, PdfPreviewComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, ShareModalComponent, PdfPreviewComponent, EcomCurrencyPipe],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -263,6 +264,7 @@ import { debounceTime } from 'rxjs/operators';
                             [id]="'codigo-' + i"
                             class="form-input"
                             formControlName="codigo"
+                            [name]="'codigo_' + i"
                             placeholder="SKU-001">
                         </div>
                         <div class="form-group">
@@ -287,6 +289,7 @@ import { debounceTime } from 'rxjs/operators';
                           class="form-input form-textarea"
                           [class.error]="isItemFieldInvalid(i, 'description')"
                           formControlName="description"
+                          [name]="'description_' + i"
                           rows="3"
                           placeholder="Descripción detallada del producto o servicio"
                           aria-required="true"
@@ -306,6 +309,7 @@ import { debounceTime } from 'rxjs/operators';
                             [id]="'quantity-' + i"
                             class="form-input"
                             formControlName="quantity"
+                            [name]="'quantity_' + i"
                             type="number"
                             inputmode="decimal"
                             min="1"
@@ -338,6 +342,7 @@ import { debounceTime } from 'rxjs/operators';
                             [id]="'priceInput-' + i"
                             class="form-input"
                             formControlName="priceInput"
+                            [name]="'priceInput_' + i"
                             type="number"
                             inputmode="decimal"
                             min="0"
@@ -351,7 +356,7 @@ import { debounceTime } from 'rxjs/operators';
                           <input
                             [id]="'subtotal-' + i"
                             class="form-input readonly subtotal-display"
-                            [value]="formatCurrency(getItemSubtotal(i))"
+                            [value]="(item.get('quantity')?.value * item.get('priceInput')?.value) | ecomCurrency: currentCurrency()"
                             readonly
                             aria-live="polite">
                         </div>
@@ -366,15 +371,15 @@ import { debounceTime } from 'rxjs/operators';
                 <div class="totals-grid">
                   <div class="total-row">
                     <span class="total-label">Subtotal (sin IGV)</span>
-                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().subtotal) }}</span>
+                    <span class="total-value" aria-live="polite">{{ totals().subtotal | ecomCurrency: currentCurrency() }}</span>
                   </div>
                   <div class="total-row">
                     <span class="total-label">IGV (18%)</span>
-                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().igv) }}</span>
+                    <span class="total-value" aria-live="polite">{{ totals().igv | ecomCurrency: currentCurrency() }}</span>
                   </div>
                   <div class="total-row grand-total">
                     <span class="total-label">TOTAL A PAGAR</span>
-                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().total) }}</span>
+                    <span class="total-value" aria-live="polite">{{ totals().total | ecomCurrency: currentCurrency() }}</span>
                   </div>
                 </div>
               </article>
@@ -1490,6 +1495,7 @@ import { debounceTime } from 'rxjs/operators';
 })
 export class QuoteFormComponent implements OnInit, OnDestroy {
   quoteForm: FormGroup;
+  currentCurrency = signal('PEN');
 
   // Controls visibility on mobile (false = form, true = preview)
   showPreview = signal(false);
@@ -1559,8 +1565,11 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     // Subscribe to form changes to trigger preview updates (debounced for performance)
     this.formSubscription = this.quoteForm.valueChanges
       .pipe(debounceTime(300))
-      .subscribe(() => {
+      .subscribe((val) => {
         this.formVersion.update(v => v + 1);
+        if (val.currency) {
+          this.currentCurrency.set(val.currency);
+        }
       });
 
     // Check for edit mode

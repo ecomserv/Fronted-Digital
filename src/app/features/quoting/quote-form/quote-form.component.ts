@@ -313,8 +313,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                             type="number"
                             inputmode="decimal"
                             min="1"
-                            step="1"
-                            (input)="updateItemSubtotal(i)">
+                            step="1">
                         </div>
                         <div class="form-group">
                           <label class="form-label" [for]="'priceInput-' + i">
@@ -346,8 +345,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                             type="number"
                             inputmode="decimal"
                             min="0"
-                            step="1"
-                            (input)="updateItemSubtotal(i)">
+                            step="1">
                           <!-- Hidden unitPrice control for internal calculation -->
                           <input type="hidden" formControlName="unitPrice">
                         </div>
@@ -526,6 +524,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
         height: auto !important;
         min-height: 100%;
         display: block;
+        padding-bottom: 300px; /* Buffer for keyboard */
       }
     }
 
@@ -1578,6 +1577,8 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
         if (val.currency) {
           this.currentCurrency.set(val.currency);
         }
+        // Autosave on blur (since all controls are updateOn: 'blur')
+        this.saveData();
       });
 
     // Check for edit mode

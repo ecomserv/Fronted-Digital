@@ -95,6 +95,8 @@ import { AuthService } from '../../../core/services/auth.service';
     :host {
       display: block;
       height: 100vh;
+      height: 100dvh;
+      min-height: -webkit-fill-available; /* iOS Safari safe area */
       width: 100%;
       overflow: hidden;
     }
@@ -349,7 +351,7 @@ export class LoginComponent {
   username = '';
   password = '';
 
-  constructor(public authService: AuthService) {}
+  constructor(public authService: AuthService) { }
 
   onLogin() {
     if (!this.username || !this.password) return;

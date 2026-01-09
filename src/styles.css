@@ -74,31 +74,52 @@ button {
     font-size: 16px !important;
   }
 
-  /* Prevent body/html from resizing on keyboard open */
+  /* 
+   * Mobile Keyboard Scroll Fix
+   * Uses dynamic viewport height (dvh) which accounts for mobile browser chrome
+   * and virtual keyboard. Falls back to vh for older browsers.
+   */
   html {
     height: 100%;
+    height: 100dvh;
     overflow-x: hidden;
     overscroll-behavior: none;
+    /* Prevent iOS rubber-band scrolling on html element */
+    -webkit-overflow-scrolling: touch;
   }
 
   body {
     min-height: 100%;
+    min-height: 100dvh;
     overflow-x: hidden;
+    /* Prevent pull-to-refresh and overscroll bounce */
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+    /* Ensure body doesn't resize when keyboard opens */
+    position: relative;
   }
 
-  /* Prevent scroll jump on focus */
+  /* Prevent scroll jump on focus - use scroll-margin for better control */
   input:focus,
   textarea:focus,
   select:focus {
     scroll-margin-top: 80px;
+    scroll-margin-bottom: 300px;
+    /* Leave room for keyboard */
   }
 
-  /* Prevent rubber-band scrolling */
+  /* Prevent rubber-band scrolling on main containers */
   main,
-  .form-section {
+  .form-section,
+  .main-content {
     overscroll-behavior: contain;
+  }
+
+  /* Fix for position: fixed elements when keyboard is open */
+  .toast,
+  .modal-overlay {
+    /* Use safe-area-inset for notched phones */
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

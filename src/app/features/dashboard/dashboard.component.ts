@@ -125,6 +125,7 @@ import { AuthService } from '../../core/services/auth.service';
     :host {
       display: block;
       min-height: 100vh;
+      min-height: 100dvh;
       background: #f8fafc;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
     }

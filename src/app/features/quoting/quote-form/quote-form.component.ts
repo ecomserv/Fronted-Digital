@@ -510,8 +510,10 @@ import { debounceTime } from 'rxjs/operators';
        ============================================ */
     .quote-page {
       min-height: 100vh;
-      min-height: 100dvh;
+      min-height: 100dvh; /* Dynamic viewport height - accounts for mobile keyboard */
       background: var(--ecom-gray-100);
+      /* Prevent overscroll on mobile */
+      overscroll-behavior: none;
     }
 
     /* ============================================
@@ -1000,6 +1002,7 @@ import { debounceTime } from 'rxjs/operators';
       position: sticky;
       top: calc(var(--header-height) + var(--spacing-xl));
       max-height: calc(100vh - var(--header-height) - var(--spacing-xl) * 2);
+      max-height: calc(100dvh - var(--header-height) - var(--spacing-xl) * 2);
       box-shadow: var(--shadow-md);
     }
 
@@ -1119,6 +1122,7 @@ import { debounceTime } from 'rxjs/operators';
        ============================================ */
     .preview-section {
       height: calc(100vh - var(--header-height) - 60px);
+      height: calc(100dvh - var(--header-height) - 60px);
       min-height: 500px;
       position: sticky;
       top: calc(var(--header-height) + 20px);
@@ -1158,6 +1162,7 @@ import { debounceTime } from 'rxjs/operators';
         top: 0;
         width: 100%;
         height: calc(100vh - var(--header-height) - 40px);
+        height: calc(100dvh - var(--header-height) - 40px);
         min-height: 500px;
         border-radius: 0;
         border: none;
@@ -1458,6 +1463,7 @@ import { debounceTime } from 'rxjs/operators';
       
       .preview-section {
         min-height: calc(100vh - 150px);
+        min-height: calc(100dvh - 150px);
       }
     }
 

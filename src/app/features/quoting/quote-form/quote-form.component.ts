@@ -432,6 +432,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
           </section>
         </div>
       </main>
+    </div>
 
       <!-- Share Modal -->
       <app-share-modal
@@ -496,7 +497,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
           {{ toastMessage() }}
         </div>
       }
-    </div>
   `,
   styles: [`
     /* ============================================

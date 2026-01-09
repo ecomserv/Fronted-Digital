@@ -77,8 +77,12 @@ button {
    */
   html {
     position: fixed;
-    width: 100%;
+    width: 100vw;
+    /* Force viewport width */
     height: 100%;
+    top: 0;
+    left: 0;
+    /* Force left align */
     overflow: hidden;
     /* No browser scroll */
     overscroll-behavior: none;
@@ -87,8 +91,12 @@ button {
 
   body {
     position: fixed;
-    width: 100%;
+    width: 100vw;
+    /* Force viewport width */
     height: 100%;
+    top: 0;
+    left: 0;
+    /* Force left align */
     overflow: hidden;
     /* No browser scroll */
     overscroll-behavior: none;

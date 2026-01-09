@@ -1,4 +1,4 @@
-import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener } from '@angular/core';
+import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PdfService, QuoteData } from '../../../core/services/pdf.service';
@@ -7,6 +7,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
   selector: 'app-pdf-preview',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="preview-container">
       <!-- Header -->

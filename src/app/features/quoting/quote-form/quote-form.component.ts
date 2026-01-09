@@ -84,9 +84,9 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
                       id="documentNumber"
                       class="form-input"
                       formControlName="documentNumber"
-                      placeholder="CES-XXXXX"
+                      placeholder="XXXXX"
                       aria-describedby="documentNumber-hint">
-                    <span id="documentNumber-hint" class="form-hint">Editable: Dejar en CES-XXXXX para automático</span>
+                    <span id="documentNumber-hint" class="form-hint">Editable: Dejar en XXXXX para automático</span>
                   </div>
                   <div class="form-group">
                     <label class="form-label" for="currency">

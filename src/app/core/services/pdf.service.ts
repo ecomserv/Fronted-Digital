@@ -115,7 +115,7 @@ export class PdfService {
   }
 
   generateDocumentNumber(): string {
-    return 'CES-XXXXX';
+    return 'XXXXX';
   }
 
   createNewQuote(): QuoteData {

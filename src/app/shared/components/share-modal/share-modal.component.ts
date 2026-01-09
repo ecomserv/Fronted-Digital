@@ -729,16 +729,27 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   async shareWhatsApp() {
+    // Build the formatted message
+    let fullMessage = `*ECOMSERV - Cotización*\n\n`;
+    fullMessage += `Hola${this.clientName() ? ` ${this.clientName()}` : ''},\n\n`;
+    fullMessage += `Le enviamos su cotización`;
+    fullMessage += this.documentNumber() ? ` N° ${this.documentNumber()}` : '';
+    fullMessage += `.\n\n`;
+    fullMessage += this.message();
+    fullMessage += `\n\n_El documento PDF se encuentra adjunto._`;
+
     // Try native share with blob first (works on iOS/mobile)
     const blob = this.pdfBlob();
     if (blob && typeof navigator.share === 'function') {
       try {
-        const fileName = `${this.documentNumber() || 'cotizacion'}.pdf`;
+        const fileName = `Cotizacion-${this.documentNumber() || 'documento'}.pdf`;
         const file = new File([blob], fileName, { type: 'application/pdf' });
-        const title = `Cotización ${this.documentNumber()}`;
-        const text = this.message();
 
-        const shareData = { files: [file], title, text };
+        const shareData = {
+          files: [file],
+          title: `Cotización ${this.documentNumber()}`,
+          text: fullMessage
+        };
 
         if (navigator.canShare && navigator.canShare(shareData)) {
           await navigator.share(shareData);

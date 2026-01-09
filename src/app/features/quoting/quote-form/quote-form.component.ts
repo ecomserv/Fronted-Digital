@@ -435,8 +435,9 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
         [clientName]="quoteForm.get('clientName')?.value"
         [clientPhone]="quoteForm.get('clientMobile')?.value"
         [clientEmail]="quoteForm.get('clientEmail')?.value"
+        [pdfBlob]="currentPdfBlob()"
         [documentType]="'cotizacion'"
-        (closed)="isShareModalOpen.set(false)"
+        (closed)="closeShareModal()"
       />
 
       <!-- Confirmation Dialog -->
@@ -1512,6 +1513,9 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   savedDocumentNumber = signal('');
   private savedPdfBlob: Blob | null = null;
 
+  // PDF for sharing
+  currentPdfBlob = signal<Blob | null>(null);
+
   constructor(
     private fb: FormBuilder,
     private pdfService: PdfService,
@@ -1900,6 +1904,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     this.apiService.generateQuote(quoteData).subscribe({
       next: (blob) => {
         this.isSaving.set(false);
+        this.currentPdfBlob.set(blob);  // Save blob for native share
         this.showToast('Cotización guardada y lista para compartir', 'success');
         this.isShareModalOpen.set(true);
 
@@ -1913,6 +1918,12 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       }
     });
   }
+
+  closeShareModal(): void {
+    this.isShareModalOpen.set(false);
+    this.currentPdfBlob.set(null);
+  }
+
 
   downloadPdf(): void {
     // Mark all fields as touched to show validation

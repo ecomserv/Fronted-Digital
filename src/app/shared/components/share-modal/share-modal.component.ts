@@ -661,6 +661,7 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   clientPhone = input<string>('');
   clientEmail = input<string>('');
   pdfUrl = input<string>('');
+  pdfBlob = input<Blob | null>(null);
   message = input<string>('Adjunto documento PDF.');
   documentType = input<'cotizacion' | 'factura'>('cotizacion');
 
@@ -728,16 +729,19 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   async shareWhatsApp() {
-    if (this.pdfUrl() && typeof navigator.share === 'function') {
+    // Try native share with blob first (works on iOS/mobile)
+    const blob = this.pdfBlob();
+    if (blob && typeof navigator.share === 'function') {
       try {
-        const response = await fetch(this.pdfUrl());
-        const blob = await response.blob();
-        const fileName = `${this.documentNumber() || 'documento'}.pdf`;
+        const fileName = `${this.documentNumber() || 'cotizacion'}.pdf`;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
         const title = `Cotización ${this.documentNumber()}`;
         const text = this.message();
 
-        const shared = await this.shareService.shareFile(blob, fileName, title, text);
-        if (shared) {
+        const shareData = { files: [file], title, text };
+
+        if (navigator.canShare && navigator.canShare(shareData)) {
+          await navigator.share(shareData);
           this.close();
           return;
         }

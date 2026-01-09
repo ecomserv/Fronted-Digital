@@ -9,8 +9,11 @@ import { RouterOutlet } from '@angular/router';
   styles: [`
     :host {
       display: block;
-      min-height: 100vh;
-      min-height: 100dvh;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto; /* Enable scroll on app-root */
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch; /* Smooth scroll on iOS */
     }
   `]
 })

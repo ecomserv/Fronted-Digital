@@ -66,46 +66,44 @@ button {
 }
 
 /* Fallback for all mobile */
+/* Fallback for all mobile */
 @media screen and (max-width: 768px) {
+
+  /* 
+   * PLAN OMEGA: AGGRESSIVE SCROLL LOCK
+   * We lock the html/body to fixed positioning to completely
+   * detach them from the browser's viewport scroll mechanism.
+   * Scrolling is delegated to internal containers (app-root).
+   */
+  html {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* No browser scroll */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* No browser scroll */
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+
+    /* Input Zoom Fix */
+    font-size: 16px;
+  }
 
   input,
   textarea,
   select {
     font-size: 16px !important;
-  }
-
-  /* 
-   * Mobile Keyboard Scroll Fix
-   * Uses dynamic viewport height (dvh) which accounts for mobile browser chrome
-   * and virtual keyboard. Falls back to vh for older browsers.
-   */
-  html {
-    height: 100%;
-    height: 100dvh;
-    overflow-x: hidden;
-    overscroll-behavior: none;
-    /* Prevent iOS rubber-band scrolling on html element */
-    -webkit-overflow-scrolling: touch;
-  }
-
-  body {
-    min-height: 100%;
-    min-height: 100dvh;
-    overflow-x: hidden;
-    /* Prevent pull-to-refresh and overscroll bounce */
-    overscroll-behavior-y: none;
-    -webkit-overflow-scrolling: touch;
-    /* Ensure body doesn't resize when keyboard opens */
-    position: relative;
-  }
-
-  /* Prevent scroll jump on focus - use scroll-margin for better control */
-  input:focus,
-  textarea:focus,
-  select:focus {
-    scroll-margin-top: 80px;
-    scroll-margin-bottom: 300px;
-    /* Leave room for keyboard */
+    /* Prevent internal scroll margin on focus since we handle it manually */
+    scroll-margin: 0 !important;
   }
 
   /* Prevent rubber-band scrolling on main containers */

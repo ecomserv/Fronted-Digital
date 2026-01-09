@@ -111,6 +111,8 @@ button {
   .form-section,
   .main-content {
     overscroll-behavior: contain;
+    overflow-anchor: none;
+    /* PLAN OMEGA V2: Prevent scroll anchoring */
   }
 
   /* Fix for position: fixed elements when keyboard is open */

@@ -240,7 +240,7 @@ import { debounceTime } from 'rxjs/operators';
                 </header>
 
                 <div class="items-list" formArrayName="items" role="list">
-                  @for (item of itemsArray.controls; track $index; let i = $index) {
+                  @for (item of itemsArray.controls; track item; let i = $index) {
                     <article class="item-card" [formGroupName]="i" role="listitem">
                       <header class="item-header">
                         <span class="item-number" aria-label="Item número {{ i + 1 }}">{{ i + 1 }}</span>
@@ -781,6 +781,7 @@ import { debounceTime } from 'rxjs/operators';
       display: flex;
       flex-direction: column;
       gap: var(--spacing-lg);
+      overflow-anchor: none; /* Prevent scroll jumps */
     }
 
     .item-card {

@@ -240,30 +240,12 @@ type ViewMode = 'list' | 'grid' | 'cards';
                         <span>TOTAL</span>
                       </div>
                       <div class="table-body">
-                        @for (item of quote.itemDetails; track $index) {
-                          <div class="table-row">
-                            <span>{{ $index + 1 }}</span>
-                            <span class="desc">{{ item.description }}</span>
-                            <span>{{ item.quantity }}</span>
-                            <span>{{ formatNumber(item.subtotal) }}</span>
-                          </div>
-                        }
-                        @if (quote.itemCount > 3) {
-                          <div class="table-row more">
-                            <span></span>
-                            <span class="desc">+ {{ quote.itemCount - 3 }} items más...</span>
-                            <span></span>
-                            <span></span>
-                          </div>
-                        }
-                        @if (quote.itemDetails.length === 0) {
-                          <div class="table-row empty">
-                            <span></span>
-                            <span class="desc">Sin items</span>
-                            <span></span>
-                            <span></span>
-                          </div>
-                        }
+                        <div class="table-row summary">
+                          <span></span>
+                          <span class="desc">{{ quote.itemCount }} producto(s)</span>
+                          <span></span>
+                          <span>{{ formatCurrency(quote.total, quote.currency) }}</span>
+                        </div>
                       </div>
                     </div>
 

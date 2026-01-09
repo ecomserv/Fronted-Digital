@@ -150,9 +150,7 @@ export interface QuoteSummary {
   currency: 'PEN' | 'USD';
   total: number;
   itemCount: number;
-  itemDetails: ItemDetail[];
   createdAt: string;
-  fileSize: number;
 }
 
 export interface SendEmailRequest {

@@ -43,6 +43,27 @@ button {
 }
 
 /* ============================================
+   iOS Zoom Prevention
+   iOS auto-zooms inputs with font-size < 16px
+   ============================================ */
+@supports (-webkit-touch-callout: none) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Fallback for all mobile */
+@media screen and (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ============================================
    ECOMSERV Design System - ACCESIBLE
    Optimizado para usuarios 50+ y móviles
    ============================================ */

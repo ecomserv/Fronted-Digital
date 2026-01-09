@@ -517,6 +517,9 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       background: var(--ecom-gray-100);
       /* Prevent overscroll on mobile */
       overscroll-behavior: none;
+      /* Hardware acceleration to prevent blink on mobile inputs */
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     @media (max-width: 768px) {
@@ -1569,9 +1572,8 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Subscribe to form changes to trigger preview updates (debounced for performance)
+    // Subscribe to form changes to trigger preview updates (immediate for updateOn: 'blur')
     this.formSubscription = this.quoteForm.valueChanges
-      .pipe(debounceTime(300))
       .subscribe((val) => {
         this.formVersion.update(v => v + 1);
         if (val.currency) {

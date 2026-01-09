@@ -7,6 +7,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ApiService, CreateQuoteRequest } from '../../../core/services/api.service';
 import { ShareModalComponent } from '../../../shared/components/share-modal/share-modal.component';
 import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-preview.component';
+import { debounceTime } from 'rxjs/operators';
 
 @Component({
   selector: 'app-quote-form',
@@ -1547,10 +1548,12 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Subscribe to form changes to trigger preview updates
-    this.formSubscription = this.quoteForm.valueChanges.subscribe(() => {
-      this.formVersion.update(v => v + 1);
-    });
+    // Subscribe to form changes to trigger preview updates (debounced for performance)
+    this.formSubscription = this.quoteForm.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe(() => {
+        this.formVersion.update(v => v + 1);
+      });
 
     // Check for edit mode
     this.route.queryParams.subscribe(params => {

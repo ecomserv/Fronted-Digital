@@ -4,10 +4,10 @@ import { Router, RouterModule } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-    selector: 'app-dashboard',
-    standalone: true,
-    imports: [CommonModule, RouterModule],
-    template: `
+   selector: 'app-dashboard',
+   standalone: true,
+   imports: [CommonModule, RouterModule],
+   template: `
     <div class="dashboard-layout">
       <!-- Top Navigation -->
       <header class="navbar">
@@ -22,7 +22,7 @@ import { AuthService } from '../../core/services/auth.service';
           </a>
           
           <div class="user-menu">
-            <span class="user-name">Admin User</span>
+            <span class="user-name">{{ authService.currentUser()?.name || 'Usuario' }}</span>
             <button class="logout-btn" (click)="logout()" title="Cerrar Sesión">
                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -37,7 +37,7 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- Main Content -->
       <main class="container main-content">
         <div class="welcome-section">
-          <h1>Bienvenido, Admin</h1>
+          <h1>Bienvenido, {{ authService.currentUser()?.name || 'Usuario' }}</h1>
           <p>Seleccione una opción para comenzar</p>
         </div>
         
@@ -121,7 +121,7 @@ import { AuthService } from '../../core/services/auth.service';
       </main>
     </div>
   `,
-    styles: [`
+   styles: [`
     :host {
       display: block;
       min-height: 100vh;
@@ -338,9 +338,9 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class DashboardComponent {
 
-    constructor(private authService: AuthService) { }
+   constructor(public authService: AuthService) { }
 
-    logout() {
-        this.authService.logout();
-    }
+   logout() {
+      this.authService.logout();
+   }
 }

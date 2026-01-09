@@ -28,10 +28,10 @@ export interface QuoteData {
   clientName: string;
   clientRuc: string;
   clientAddress: string;
-  clientPhone: string;
+
   clientEmail: string;
   clientReference?: string;
-  clientMovil?: string;
+  clientMobile?: string;
   vendedor?: string;
   atte?: string;
 
@@ -86,17 +86,16 @@ export class PdfService {
       next: (data) => {
         if (data && data.rates && data.rates.PEN) {
           this.exchangeRate = data.rates.PEN;
-          console.log('Tipo de cambio actualizado:', this.exchangeRate);
         }
       },
-      error: (err) => {
-        console.error('Error al obtener tipo de cambio, usando valor por defecto:', err);
+      error: () => {
+        // Fallback silencioso al valor por defecto
       }
     });
   }
 
   calculateItemSubtotal(quantity: number, unitPrice: number): number {
-    return Math.round(quantity * unitPrice * 100) / 100;
+    return Math.round(quantity * unitPrice * 10000) / 10000;
   }
 
   calculateTotals(items: DocumentItem[]): { subtotal: number; igv: number; total: number } {
@@ -116,8 +115,7 @@ export class PdfService {
   }
 
   generateDocumentNumber(): string {
-    const random = String(Math.floor(Math.random() * 10000)).padStart(5, '0');
-    return `CES-${random}`;
+    return 'CES-XXXXX';
   }
 
   createNewQuote(): QuoteData {
@@ -135,10 +133,10 @@ export class PdfService {
       clientName: '',
       clientRuc: '',
       clientAddress: '',
-      clientPhone: '',
+
       clientEmail: '',
       clientReference: '',
-      clientMovil: '',
+      clientMobile: '',
       vendedor: '',
       atte: '',
       items: [],
@@ -160,7 +158,7 @@ export class PdfService {
       <tr>
         <td style="text-align: center;">${index + 1}</td>
         <td style="text-align: center;">${item.codigo || ''}</td>
-        <td style="padding: 10px 8px; font-size: 11px;">${item.description}</td>
+        <td style="padding: 10px 8px; font-size: 11px;">${(item.description || '').replace(/\n/g, '<br/>')}</td>
         <td style="text-align: center;">${item.unidadMedida || 'UND'}</td>
         <td style="text-align: center;">${this.formatNumber(item.quantity)}</td>
         <td style="text-align: right;">${this.formatNumber(item.unitPrice)}</td>
@@ -169,9 +167,7 @@ export class PdfService {
     `).join('');
 
     // Calcular valores
-    const valorVenta = data.subtotal;
     const igv = data.igv;
-
 
     // Formatear fecha
     const formatDate = (date: Date) => {
@@ -188,12 +184,11 @@ export class PdfService {
     const symbolUSD = 'US$';
     const symbolPEN = 'S/.';
 
-    let valorVentaUSD, igvUSD, totalUSD;
+    let igvUSD, totalUSD;
     let totalPEN;
 
     if (isUSD) {
       // Data is already in USD
-      valorVentaUSD = valorVenta;
       igvUSD = igv;
       totalUSD = data.total;
 
@@ -202,7 +197,6 @@ export class PdfService {
     } else {
       // Data is in PEN
       // Calculate USD equivalents for the Top Section
-      valorVentaUSD = valorVenta / rate;
       igvUSD = igv / rate;
       totalUSD = data.total / rate;
 
@@ -211,12 +205,17 @@ export class PdfService {
     }
 
     // Totals in USD (Top Section)
-    const valorVentaStr = `${symbolUSD} ${this.formatNumber(valorVentaUSD)}`;
     const igvStr = `${symbolUSD} ${this.formatNumber(igvUSD)}`;
     const totalOriginalStr = `${symbolUSD} ${this.formatNumber(totalUSD)}`;
 
     // Total in Soles (Bottom Section)
     const totalPENStr = `${symbolPEN} ${this.formatNumber(totalPEN)}`;
+
+    // Subtotal e IGV formateados para mostrar
+    const subtotalPEN = isUSD ? data.subtotal * rate : data.subtotal;
+    const igvPEN = isUSD ? igv * rate : igv;
+    const subtotalFormattedStr = `${symbolPEN} ${this.formatNumber(subtotalPEN)}`;
+    const igvFormattedStr = `${symbolPEN} ${this.formatNumber(igvPEN)}`;
 
     return `
       <!DOCTYPE html>
@@ -263,26 +262,24 @@ export class PdfService {
           }
 
           /* ===== HEADER ===== */
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            padding: 15px 0;
+          .header-table {
+            width: 100%;
+            border-collapse: collapse;
             border-bottom: 3px solid #1e3a8a;
             margin-bottom: 15px;
           }
 
-          .logo-section {
-            flex: 0 0 220px;
+          .header-table td {
+             vertical-align: top;
+             padding-bottom: 15px;
           }
 
           .logo-section img {
-            max-width: 200px;
+            max-width: 280px;
             height: auto;
           }
 
           .company-info {
-            flex: 1;
             text-align: right;
             padding-left: 20px;
           }
@@ -322,32 +319,26 @@ export class PdfService {
             font-size: 12px;
           }
 
-          .client-row {
-            display: flex;
-            margin-bottom: 2px;
+          .client-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+          }
+
+          .client-table td {
+            vertical-align: top;
+            padding: 2px 0;
           }
 
           .client-label {
-            width: 100px;
+            width: 90px;
             font-weight: bold;
             color: #1e3a8a;
+            display: inline-block;
           }
 
           .client-value {
-            flex: 1;
-          }
-
-          .client-grid {
-            display: flex;
-            gap: 20px;
-          }
-
-          .client-grid .left {
-            flex: 1;
-          }
-
-          .client-grid .right {
-            flex: 1;
+             /* just text */
           }
 
           .intro-text {
@@ -355,7 +346,7 @@ export class PdfService {
             font-size: 12px;
           }
 
-          /* ===== TABLE ===== */
+          /* ===== ITEMS TABLE ===== */
           .items-table {
             width: 100%;
             border-collapse: collapse;
@@ -370,146 +361,123 @@ export class PdfService {
             font-weight: bold;
             text-transform: uppercase;
             text-align: center;
+            border-bottom: 2px solid #1e3a8a;
           }
 
           .items-table tbody td {
             font-size: 11px;
             color: #000;
-            padding: 8px 6px; /* Added padding for better spacing */
-          }
-
-          /* Removed borders as requested */
-          .items-table thead th,
-          .items-table tbody td {
+            padding: 8px 6px;
             border: none;
           }
-           
-           /* Keep subtle bottom border for header separator */
-           .items-table thead th {
-               border-bottom: 2px solid #1e3a8a; 
-           }
-
 
           /* ===== TOTALS ===== */
           .totals-section {
+            width: 100%;
             margin-top: 0;
             border: 2px solid #1e3a8a; 
             border-top: none;
           }
 
-          .totals-row {
-            display: flex;
-            justify-content: flex-end;
-            background: #ffffff;
-            padding: 10px 12px;
+          .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          .totals-table td {
+            padding: 8px 12px;
             font-size: 12px;
           }
 
-          .totals-row .item {
-            margin-left: 30px;
-            display: flex; /* alignment fix */
-            width: 180px; /* Fixed width for alignment */
-            justify-content: space-between;
-          }
-
-          .totals-row .label {
+          .totals-label {
             font-weight: bold;
             color: #1e3a8a;
-          }
-
-          .totals-row .value {
-            margin-left: 10px;
-            font-weight: bold;
             text-align: right;
           }
 
-          .totals-soles {
-            display: flex;
-            justify-content: flex-end;
-            background: #1e3a8a;
-            color: white;
-            padding: 10px 12px;
-            font-size: 13px;
+          .totals-value {
             font-weight: bold;
+            text-align: right;
+            width: 120px;
+          }
+          
+          .totals-row-bg {
+             background-color: #ffffff;
           }
 
-          .totals-soles .item {
-            margin-left: 30px;
-            display: flex;
-            width: 180px;
-            justify-content: space-between;
+          .totals-soles-bg {
+            background: #1e3a8a;
+            color: white;
+          }
+          
+          .totals-soles-bg .totals-label, 
+          .totals-soles-bg .totals-value {
+             color: white;
+             font-size: 13px;
           }
 
           /* ===== CONDITIONS ===== */
-          .conditions-section {
-            margin-top: 15px;
-            border: 2px solid #1e3a8a;
+          .conditions-container {
+             border: 2px solid #1e3a8a;
+             margin-top: 8px;
           }
 
-          .conditions-header {
-            background: #FFFF00;
-            padding: 12px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-            border-bottom: 2px solid #1e3a8a;
+          .conditions-header-table {
+            width: 100%;
+            background: #ffffff;
+            border-bottom: 1px solid #1e3a8a;
+            border-collapse: collapse;
+          }
+          
+          .conditions-header-table td {
+             padding: 12px 15px;
+             font-size: 13px;
+             vertical-align: middle;
           }
 
-          .conditions-header .condition-item {
-            display: flex;
-            align-items: center;
-          }
-
-          .conditions-header .condition-label {
+          .condition-label-big {
             font-weight: bold;
             color: #1e3a8a;
-            margin-right: 5px;
           }
-
-          .conditions-header .condition-value {
+          .condition-value-big {
             color: #c00;
             font-weight: bold;
           }
-
-          .conditions-header .total-soles {
+          
+          .condition-total-big {
             font-weight: bold;
             color: #c00;
             font-size: 14px;
+            text-align: right;
           }
 
-          .conditions-body {
-            padding: 8px 10px;
+          .conditions-body-table {
+            width: 100%;
+            border-collapse: collapse;
             background: #ffffff;
           }
 
-          .conditions-row {
-            display: flex;
-            margin-bottom: 5px;
+          .conditions-body-table td {
+            padding: 4px 10px;
             font-size: 12px;
+            vertical-align: top;
           }
 
-          .conditions-row .label {
+          .condition-row-label {
             width: 130px;
             font-weight: bold;
             color: #1e3a8a;
           }
 
-          .conditions-row .value {
-            flex: 1;
-          }
-
-          /* ===== PAYMENT METHODS & SIGNATURE ===== */
-          .payment-container {
-             display: flex;
-             justify-content: space-between;
-             align-items: flex-start;
+          /* ===== PAYMENT & SIGNATURE ===== */
+          .payment-signature-table {
+             width: 100%;
              margin-top: 15px;
-             padding-top: 10px;
+             border-collapse: collapse;
           }
-
-          .bcp-info {
-            flex: 1;
+          
+          .payment-signature-table td {
+             vertical-align: top;
           }
 
           .bcp-title {
@@ -526,19 +494,10 @@ export class PdfService {
             color: #333;
           }
           
-          .signature-section {
-             flex: 0 0 200px;
-             text-align: center;
-             display: flex;
-             flex-direction: column;
-             align-items: center;
-             justify-content: flex-end;
-          }
-          
           .signature-img {
               max-width: 180px;
               max-height: 100px;
-              object-fit: contain;
+
           }
 
           /* ===== FAREWELL ===== */
@@ -553,83 +512,77 @@ export class PdfService {
             margin-top: 15px;
             padding-top: 10px;
             border-top: 2px solid #1e3a8a;
+            text-align: center;
           }
 
           .footer-brands {
-            width: 100%;
-            max-height: 50px;
+            max-width: 100%;
+            max-height: 80px;
             object-fit: contain;
-          }
-
-          /* Print optimizations */
-          @media print {
-            .page-container {
-              padding: 0;
-            }
-
-            .conditions-section,
-            .items-table {
-              page-break-inside: avoid;
-            }
           }
         </style>
       </head>
       <body>
         <div class="page-container">
           <!-- HEADER -->
-          <div class="header">
-            <div class="logo-section">
-              <img src="/assets/logo.png" alt="ECOMSERV" style="display:none;" onerror="this.src='/logo-ecomserv.png'"> <!-- Fallback/Adjust based on actual asset location if known, usually assets are relative -->
-               <img src="/logo-ecomserv.png" alt="ECOMSERV">
-            </div>
-            <div class="company-info">
-              <div class="quote-title">COTIZACIÓN: <span class="quote-number">${data.documentNumber}</span></div>
-              <div class="company-details">
-                <div class="ruc">RUC: ${data.companyRuc}</div>
-                <div>${data.companyAddress}</div>
-                <div>Telf: ${data.companyPhone}</div>
-
-              </div>
-            </div>
-          </div>
+          <table class="header-table">
+            <tr>
+              <td class="logo-section" style="width: 250px;">
+                <img src="/logo-ecomserv.png" alt="ECOMSERV">
+              </td>
+              <td class="company-info">
+                 <div class="quote-title">COTIZACIÓN: <span class="quote-number">${data.documentNumber}</span></div>
+                 <div class="company-details">
+                   <div class="ruc">RUC: ${data.companyRuc}</div>
+                   <div>${data.companyAddress}</div>
+                   <div>Telf: ${data.companyPhone}</div>
+                 </div>
+              </td>
+            </tr>
+          </table>
 
           <!-- CLIENT INFO -->
           <div class="client-section">
-            <div class="client-grid">
-              <div class="left">
-                <div class="client-row">
-                  <span class="client-label">FECHA</span>
-                  <span class="client-value">: ${formatDate(data.documentDate)}</span>
-                </div>
-                <div class="client-row">
-                  <span class="client-label">SEÑOR</span>
-                  <span class="client-value">: ${data.clientName || 'VENTA CONTADO'}</span>
-                </div>
-                <div class="client-row">
-                  <span class="client-label">DIRECCION</span>
-                  <span class="client-value">: ${data.clientAddress || ''}</span>
-                </div>
-                <div class="client-row">
-                  <span class="client-label">TELEFONO</span>
-                  <span class="client-value">: ${data.clientPhone || ''}</span>
-                </div>
-                <div class="client-row">
-                  <span class="client-label">ATTE</span>
-                  <span class="client-value">: ${data.atte || ''}</span>
-                </div>
-
-              </div>
-              <div class="right">
-                <div class="client-row">
-                  <span class="client-label">REFERENCIA</span>
-                  <span class="client-value">: ${data.clientReference || ''}</span>
-                </div>
-                <div class="client-row">
-                  <span class="client-label">MOVIL</span>
-                  <span class="client-value">: ${data.clientMovil || ''}</span>
-                </div>
-              </div>
-            </div>
+            <table class="client-table">
+              <tr>
+                <td style="width: 50%;">
+                   <table style="width: 100%;">
+                     <tr>
+                        <td class="client-label">FECHA</td>
+                        <td class="client-value">: ${formatDate(data.documentDate)}</td>
+                     </tr>
+                     <tr>
+                        <td class="client-label">SEÑOR</td>
+                        <td class="client-value">: ${data.clientName || 'VENTA CONTADO'}</td>
+                     </tr>
+                     <tr>
+                        <td class="client-label">DIRECCION</td>
+                        <td class="client-value">: ${data.clientAddress || ''}</td>
+                     </tr>
+                     <tr>
+                        <td class="client-label">TELEFONO</td>
+                        <td class="client-value">: ${data.clientMobile || ''}</td>
+                     </tr>
+                     <tr>
+                        <td class="client-label">ATTE</td>
+                        <td class="client-value">: ${data.atte || ''}</td>
+                     </tr>
+                   </table>
+                </td>
+                <td style="width: 50%;">
+                   <table style="width: 100%;">
+                      <tr>
+                        <td class="client-label">REFERENCIA</td>
+                        <td class="client-value">: ${data.clientReference || ''}</td>
+                      </tr>
+                      <tr>
+                        <td class="client-label">RUC</td>
+                        <td class="client-value">: ${data.clientRuc || ''}</td>
+                      </tr>
+                   </table>
+                </td>
+              </tr>
+            </table>
 
             <div class="intro-text">
               <strong>Estimados señores:</strong><br>
@@ -657,94 +610,96 @@ export class PdfService {
 
           <!-- TOTALS -->
           <div class="totals-section">
-            <div class="totals-row">
-              <div class="item">
-                <span class="label">VALOR VENTA:</span>
-                <span class="value">${valorVentaStr}</span>
-              </div>
-              <div class="item">
-                <span class="label">IGV:</span>
-                <span class="value">${igvStr}</span>
-              </div>
-              <div class="item">
-                <span class="label">TOTAL:</span>
-                <span class="value">${totalOriginalStr}</span>
-              </div>
-            </div>
-            <div class="totals-soles">
-              <div class="item">
-                <span>EN:</span>
-                <span style="text-align: right;">SOLES</span>
-              </div>
-              <div class="item">
-                <span>TOTAL:</span>
-                <span style="text-align: right;">${totalPENStr}</span>
-              </div>
-            </div>
+             <table class="totals-table">
+                <!-- Subtotal -->
+                <tr class="totals-row-bg">
+                   <td colspan="3"></td>
+                   <td class="totals-label">Subtotal</td>
+                   <td class="totals-value">${subtotalFormattedStr}</td>
+                </tr>
+                <!-- IGV -->
+                <tr class="totals-row-bg">
+                   <td colspan="3"></td>
+                   <td class="totals-label">IGV (18%)</td>
+                   <td class="totals-value">${igvFormattedStr}</td>
+                </tr>
+                <!-- Total -->
+                <tr class="totals-soles-bg">
+                   <td style="text-align: right;">EN:</td>
+                   <td colspan="2" style="text-align: right; width: auto; font-weight: bold;">SOLES</td>
+                   <td class="totals-label" style="width: 100px;">TOTAL:</td>
+                   <td class="totals-value">${totalPENStr}</td>
+                </tr>
+             </table>
           </div>
 
           <!-- CONDITIONS -->
-          <div class="conditions-section">
-            <div class="conditions-header">
-              <div class="condition-item">
-                <span class="condition-label">CONDICION DE PAGO :</span>
-                <span class="condition-value">${data.condicionPago || 'CONTADO'}</span>
-              </div>
-              <div class="condition-item total-soles">
-                TOTAL: ${totalPENStr}
-              </div>
-            </div>
-            <div class="conditions-body">
-              <div class="conditions-row">
-                <span class="label">Garantías</span>
-                <span class="value">: 3 meses por servicio</span>
-              </div>
-              <div class="conditions-row">
-                <span class="label">Plazo de entrega</span>
-                <span class="value">: 01 día contado a partir de la aprobación de la cotización y/o recepción de la orden de compra.</span>
-              </div>
-              <div class="conditions-row">
-                <span class="label">Forma de pago</span>
-                <span class="value">: Contado contra entrega</span>
-              </div>
-              <div class="conditions-row">
-                <span class="label">Tipo de moneda</span>
-                <span class="value">: ${isUSD ? 'Los precios son expresados en Dólares Americanos' : 'Todos los precios son expresados en Soles'}</span>
-              </div>
-              <div class="conditions-row">
-                <span class="label">Impuestos</span>
-                <span class="value">: LOS PRECIOS UNITARIOS Y EL TOTAL INCLUYEN el Impuesto General a las Ventas (18%).</span>
-              </div>
-              <div class="conditions-row">
-                <span class="label">Validez de la oferta</span>
-                <span class="value">: 04 días sujeto a variación sin previo aviso.</span>
-              </div>
-              ${data.notes ? `
-              <div class="conditions-row">
-                <span class="label">Observación</span>
-                <span class="value">: ${data.notes}</span>
-              </div>
-              ` : ''}
-
-              <!-- PAYMENT METHODS & SIGNATURE -->
-               <div class="payment-container">
-                  <div class="bcp-info">
-                    <div class="bcp-title">NÚMERO DE CUENTA SOLES BCP</div>
-                    <div class="bcp-details">
-                      <strong>${this.bankInfo.titular}</strong><br>
-                      RUC: ${this.bankInfo.ruc}<br>
-                      Número cuenta BCP: ${this.bankInfo.cuentaSoles}<br>
-                      Código interbancario CCI: ${this.bankInfo.cciSoles}
-                    </div>
-                  </div>
-                  
-                  <div class="signature-section">
-                    <img src="/firma_digital.png" class="signature-img" alt="Firma">
-                    <div style="font-size: 10px; margin-top: 5px; font-weight: bold;">VENTAS</div>
-                  </div>
-               </div>
-
-            </div>
+          <div class="conditions-container">
+             <table class="conditions-body-table">
+                <tr><td style="height: 5px;"></td><td style="height: 5px;"></td></tr>
+                <tr>
+                   <td class="condition-row-label">Garantías</td>
+                   <td>: 3 meses por servicio</td>
+                </tr>
+                <tr>
+                   <td class="condition-row-label">Plazo de entrega</td>
+                   <td>: 01 día contado a partir de la aprobación de la cotización y/o recepción de la orden de compra.</td>
+                </tr>
+                <tr>
+                   <td class="condition-row-label">Forma de pago</td>
+                   <td>: Contado contra entrega</td>
+                </tr>
+                <tr>
+                   <td class="condition-row-label">Tipo de moneda</td>
+                   <td>: ${isUSD ? 'Los precios son expresados en Dólares Americanos' : 'Todos los precios son expresados en Soles'}</td>
+                </tr>
+                <tr>
+                   <td class="condition-row-label">Impuestos</td>
+                   <td>: LOS PRECIOS UNITARIOS Y EL TOTAL INCLUYEN el Impuesto General a las Ventas (18%).</td>
+                </tr>
+                <tr>
+                   <td class="condition-row-label">Validez de la oferta</td>
+                   <td>: 04 días sujeto a variación sin previo aviso.</td>
+                </tr>
+                 ${data.notes ? `
+                <tr>
+                   <td class="condition-row-label">Observación</td>
+                   <td>: ${data.notes}</td>
+                </tr>
+                 ` : ''}
+                 <tr><td style="height: 5px;"></td><td style="height: 5px;"></td></tr>
+             </table>
+             
+             <!-- PAYMENT & SIGNATURE (Inside conditions border or just below? 
+                  Previous CSS had it inside a container with border? 
+                  Looking at previous CSS "payment-container" was inside "conditions-body".
+                  So I should probably keep it inside the conditions structure or just append it below but inside the main container if I want the border.
+                  Wait, "conditions-section" had the border. "payment-container" was INSIDE "conditions-body".
+                  I'll put it inside the conditions-container but maybe as a separate table or row.
+                  Let's just put it as a new table inside the container but after the conditions-body-table.
+                  Actually, the user wants "payment/signature" layout. 
+                  Let's add it to the bottom of the conditions container or just inside the main page container?
+                  Original: inside "conditions-body".
+                  Okay, I'll add a row to "conditions-body-table" or just make a new table inside the border.
+                  I'll use a new table inside the conditions container to separate logic easier.
+             -->
+             <table class="payment-signature-table" style="background: #ffffff; padding: 10px;">
+                <tr>
+                   <td style="padding: 10px;">
+                     <div class="bcp-title">NÚMERO DE CUENTA SOLES BCP</div>
+                     <div class="bcp-details">
+                       <strong>${this.bankInfo.titular}</strong><br>
+                       RUC: ${this.bankInfo.ruc}<br>
+                       Número cuenta BCP: ${this.bankInfo.cuentaSoles}<br>
+                       Código interbancario CCI: ${this.bankInfo.cciSoles}
+                     </div>
+                   </td>
+                   <td style="text-align: center; vertical-align: bottom; padding: 10px;">
+                     <img src="/firma_digital.png" class="signature-img" alt="Firma">
+                     <div style="font-size: 10px; margin-top: 5px; font-weight: bold;">VENTAS</div>
+                   </td>
+                </tr>
+             </table>
           </div>
 
           <!-- FAREWELL -->

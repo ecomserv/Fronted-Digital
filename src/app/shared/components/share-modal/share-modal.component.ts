@@ -1,114 +1,152 @@
 import { Component, input, output, signal, OnChanges, SimpleChanges, ElementRef, ViewChild, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ShareService, ShareOptions } from '../../../core/services/share.service';
 
 @Component({
   selector: 'app-share-modal',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     @if (isOpen()) {
-      <div
-        class="modal-overlay"
-        (click)="onOverlayClick($event)"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="share-modal-title"
-        #modalOverlay>
-        <div class="modal-content share-modal" role="document">
+      <div class="modal-backdrop" (click)="onBackdropClick($event)" role="dialog" aria-modal="true">
+        <div class="modal-sheet" role="document" #modalSheet>
+          <!-- Drag Handle (Mobile) -->
+          <div class="drag-handle"></div>
+
           <!-- Header -->
-          <header class="modal-header">
-            <div class="modal-title-section">
-              <h2 id="share-modal-title" class="modal-title">Compartir Documento</h2>
-              <p class="modal-subtitle">{{ documentInfo() }}</p>
+          <header class="sheet-header">
+            <div class="header-content">
+              <div class="header-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+              </div>
+              <div class="header-text">
+                <h2 class="sheet-title">Compartir</h2>
+                <p class="sheet-subtitle">{{ documentInfo() }}</p>
+              </div>
             </div>
-            <button
-              type="button"
-              class="close-btn"
-              (click)="close()"
-              aria-label="Cerrar ventana"
-              #closeButton>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
+            <button type="button" class="close-btn" (click)="close()" aria-label="Cerrar" #closeBtn>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
               </svg>
             </button>
           </header>
 
-          <!-- Share Options -->
-          <div class="share-options" role="list">
-            <!-- WhatsApp Option -->
-            <button
-              type="button"
-              class="share-option"
-              (click)="shareWhatsApp()"
-              role="listitem"
-              aria-label="Compartir por WhatsApp">
-              <div class="option-icon whatsapp-icon" aria-hidden="true">
-                <i class="pi pi-whatsapp"></i>
-              </div>
-              <div class="option-content">
-                <span class="option-title">WhatsApp</span>
-                <span class="option-desc">Enviar mensaje directo al cliente</span>
-              </div>
-              <svg class="option-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
+          <!-- Content -->
+          <div class="sheet-content">
+            @if (!emailMode()) {
+              <!-- Share Options Grid -->
+              <div class="share-grid">
+                <!-- WhatsApp -->
+                <button type="button" class="share-item" (click)="shareWhatsApp()">
+                  <div class="item-icon whatsapp">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                  </div>
+                  <span class="item-label">WhatsApp</span>
+                </button>
 
-            <!-- Email Option -->
-            <button
-              type="button"
-              class="share-option"
-              (click)="shareEmail()"
-              role="listitem"
-              aria-label="Compartir por correo electrónico">
-              <div class="option-icon email-icon" aria-hidden="true">
-                <i class="pi pi-envelope"></i>
+                <!-- Email -->
+                <button type="button" class="share-item" (click)="toggleEmailMode()">
+                  <div class="item-icon email">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                      <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                  </div>
+                  <span class="item-label">Correo</span>
+                </button>
               </div>
-              <div class="option-content">
-                <span class="option-title">Correo Electrónico</span>
-                <span class="option-desc">Abrir cliente de correo</span>
-              </div>
-              <svg class="option-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
 
-            <!-- Copy Link Option -->
-            <button
-              type="button"
-              class="share-option"
-              [class.copied]="copied()"
-              (click)="copyLink()"
-              role="listitem"
-              [attr.aria-label]="copied() ? 'Enlace copiado' : 'Copiar enlace al portapapeles'">
-              <div class="option-icon copy-icon" aria-hidden="true">
-                <i class="pi" [class.pi-copy]="!copied()" [class.pi-check]="copied()"></i>
-              </div>
-              <div class="option-content">
-                <span class="option-title">{{ copied() ? 'Enlace Copiado' : 'Copiar Enlace' }}</span>
-                <span class="option-desc">{{ copied() ? 'Listo para pegar' : 'Copiar al portapapeles' }}</span>
-              </div>
-              @if (!copied()) {
-                <svg class="option-arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <polyline points="9 18 15 12 9 6"></polyline>
+              <!-- Quick Info -->
+              <div class="quick-info">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
                 </svg>
-              } @else {
-                <svg class="option-check" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-              }
-            </button>
+                <span>El PDF se adjuntará automáticamente</span>
+              </div>
+            } @else {
+              <!-- Email Form -->
+              <div class="email-form">
+                @if (!emailSent()) {
+                  <div class="form-header">
+                    <button type="button" class="back-btn" (click)="toggleEmailMode()">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"/>
+                      </svg>
+                    </button>
+                    <h3>Enviar por correo</h3>
+                  </div>
+
+                  <div class="form-field">
+                    <label for="email-input">Correo del destinatario</label>
+                    <div class="input-wrapper" [class.focused]="emailFocused()" [class.error]="emailTo && !isValidEmail()">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                      </svg>
+                      <input
+                        id="email-input"
+                        type="email"
+                        [(ngModel)]="emailTo"
+                        placeholder="ejemplo@correo.com"
+                        [disabled]="isSending()"
+                        (focus)="emailFocused.set(true)"
+                        (blur)="emailFocused.set(false)"
+                        autocomplete="email">
+                    </div>
+                    @if (emailTo && !isValidEmail()) {
+                      <span class="error-text">Ingrese un correo válido</span>
+                    }
+                  </div>
+
+                  <button
+                    type="button"
+                    class="send-btn"
+                    (click)="sendEmail()"
+                    [disabled]="isSending() || !isValidEmail()">
+                    @if (isSending()) {
+                      <span class="spinner"></span>
+                      <span>Enviando...</span>
+                    } @else {
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"/>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                      </svg>
+                      <span>Enviar Correo</span>
+                    }
+                  </button>
+                } @else {
+                  <!-- Success State -->
+                  <div class="success-state">
+                    <div class="success-icon">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </div>
+                    <h3 class="success-title">¡Correo enviado!</h3>
+                    <p class="success-text">El correo fue enviado correctamente a:</p>
+                    <p class="success-email">{{ emailTo }}</p>
+                  </div>
+                }
+              </div>
+            }
           </div>
 
           <!-- Footer -->
-          <footer class="modal-footer">
-            <button
-              type="button"
-              class="btn btn-outline btn-lg full-width"
-              (click)="close()">
-              Cancelar
+          <footer class="sheet-footer">
+            <button type="button" class="cancel-btn" (click)="close()">
+              Cerrar
             </button>
           </footer>
         </div>
@@ -117,17 +155,17 @@ import { ShareService, ShareOptions } from '../../../core/services/share.service
   `,
   styles: [`
     /* ============================================
-       MODAL OVERLAY
+       BACKDROP
        ============================================ */
-    .modal-overlay {
+    .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: center;
-      z-index: 1000;
-      padding: var(--spacing-lg);
+      z-index: 9999;
       animation: fadeIn 0.2s ease;
     }
 
@@ -137,313 +175,485 @@ import { ShareService, ShareOptions } from '../../../core/services/share.service
     }
 
     /* ============================================
-       MODAL CONTENT - Blanco y limpio
+       MODAL SHEET (Bottom Sheet Style)
        ============================================ */
-    .share-modal {
-      max-width: 480px;
+    .modal-sheet {
       width: 100%;
-      border-radius: var(--radius-xl);
-      background: white;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-      animation: slideUp 0.3s ease;
+      max-width: 480px;
+      max-height: 85vh;
+      background: #ffffff;
+      border-radius: 24px 24px 0 0;
       overflow: hidden;
+      animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+      display: flex;
+      flex-direction: column;
     }
 
     @keyframes slideUp {
       from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.98);
+        transform: translateY(100%);
       }
       to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0);
       }
+    }
+
+    /* Drag Handle */
+    .drag-handle {
+      width: 36px;
+      height: 5px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      margin: 12px auto 0;
+      flex-shrink: 0;
     }
 
     /* ============================================
        HEADER
        ============================================ */
-    .modal-header {
+    .sheet-header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: flex-start;
-      padding: var(--spacing-xl);
-      border-bottom: 1px solid var(--ecom-gray-200);
+      padding: 20px 20px 16px;
+      flex-shrink: 0;
     }
 
-    .modal-title-section {
-      flex: 1;
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
-    .modal-title {
-      font-size: var(--text-xl);
-      font-weight: 700;
-      color: var(--ecom-gray-900);
-      margin: 0 0 var(--spacing-xs);
-    }
-
-    .modal-subtitle {
-      font-size: var(--text-base);
-      color: var(--ecom-gray-600);
-      margin: 0;
-    }
-
-    .close-btn {
+    .header-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: var(--touch-target-min);
-      min-height: var(--touch-target-min);
-      margin: calc(var(--spacing-sm) * -1);
-      background: none;
+      color: #4f46e5;
+    }
+
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .sheet-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .sheet-subtitle {
+      margin: 0;
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .close-btn {
+      width: 40px;
+      height: 40px;
       border: none;
-      color: var(--ecom-gray-500);
+      background: #f1f5f9;
+      border-radius: 12px;
+      color: #64748b;
       cursor: pointer;
-      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.15s ease;
     }
 
     .close-btn:hover {
-      background: var(--ecom-gray-100);
-      color: var(--ecom-gray-900);
+      background: #e2e8f0;
+      color: #1e293b;
     }
 
-    .close-btn:focus-visible {
-      box-shadow: var(--focus-ring);
+    .close-btn:active {
+      transform: scale(0.95);
     }
 
     /* ============================================
-       SHARE OPTIONS - Botones grandes
+       CONTENT
        ============================================ */
-    .share-options {
-      padding: var(--spacing-lg);
+    .sheet-content {
+      padding: 0 20px 20px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* ============================================
+       SHARE GRID
+       ============================================ */
+    .share-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .share-item {
       display: flex;
       flex-direction: column;
-      gap: var(--spacing-md);
-    }
-
-    .share-option {
-      display: flex;
       align-items: center;
-      gap: var(--spacing-lg);
-      min-height: 80px;
-      padding: var(--spacing-lg);
-      border: 2px solid var(--ecom-gray-200);
-      border-radius: var(--radius-lg);
-      background: white;
+      gap: 10px;
+      padding: 20px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 16px;
+      background: #ffffff;
       cursor: pointer;
       transition: all 0.2s ease;
-      text-align: left;
-      width: 100%;
     }
 
-    .share-option:hover {
-      background: var(--ecom-gray-50);
-      border-color: var(--ecom-gray-300);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    .share-item:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
     }
 
-    .share-option:focus-visible {
-      box-shadow: var(--focus-ring);
-      border-color: var(--ecom-primary-500);
+    .share-item:active {
+      transform: scale(0.98);
+      border-color: #94a3b8;
     }
 
-    .share-option:active {
-      transform: translateY(0);
-    }
-
-    .share-option.copied {
-      background: var(--ecom-success-50);
-      border-color: var(--ecom-success-500);
-    }
-
-    /* ============================================
-       OPTION ICONS - Grandes y claros
-       ============================================ */
-    .option-icon {
+    .item-icon {
       width: 56px;
       height: 56px;
-      border-radius: var(--radius-md);
+      border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
     }
 
-    .option-icon i {
-      font-size: 1.75rem;
-    }
-
-    .whatsapp-icon {
+    .item-icon.whatsapp {
       background: #dcfce7;
       color: #16a34a;
     }
 
-    .email-icon {
-      background: var(--ecom-gray-100);
-      color: var(--ecom-gray-700);
+    .item-icon.email {
+      background: #e0e7ff;
+      color: #4f46e5;
     }
 
-    .copy-icon {
-      background: var(--ecom-gray-100);
-      color: var(--ecom-gray-700);
-    }
-
-    .copied .copy-icon {
-      background: var(--ecom-success-100);
-      color: var(--ecom-success-700);
+    .item-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
     }
 
     /* ============================================
-       OPTION CONTENT
+       QUICK INFO
        ============================================ */
-    .option-content {
-      flex: 1;
+    .quick-info {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #f0fdf4;
+      border-radius: 12px;
+      color: #15803d;
+      font-size: 13px;
     }
 
-    .option-title {
-      font-size: var(--text-lg);
-      font-weight: 600;
-      color: var(--ecom-gray-900);
-    }
-
-    .option-desc {
-      font-size: var(--text-sm);
-      color: var(--ecom-gray-600);
-    }
-
-    .option-arrow,
-    .option-check {
-      color: var(--ecom-gray-400);
+    .quick-info svg {
       flex-shrink: 0;
     }
 
-    .option-check {
-      color: var(--ecom-success-600);
+    /* ============================================
+       EMAIL FORM
+       ============================================ */
+    .email-form {
+      animation: fadeIn 0.2s ease;
+    }
+
+    .form-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .form-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 10px;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .back-btn:hover {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+
+    .form-field {
+      margin-bottom: 20px;
+    }
+
+    .form-field label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      height: 52px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      transition: all 0.2s ease;
+    }
+
+    .input-wrapper svg {
+      color: #94a3b8;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper.focused {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    }
+
+    .input-wrapper.focused svg {
+      color: #4f46e5;
+    }
+
+    .input-wrapper.error {
+      border-color: #ef4444;
+    }
+
+    .input-wrapper.error svg {
+      color: #ef4444;
+    }
+
+    .input-wrapper input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      color: #0f172a;
+      background: transparent;
+    }
+
+    .input-wrapper input::placeholder {
+      color: #94a3b8;
+    }
+
+    .input-wrapper input:disabled {
+      color: #94a3b8;
+    }
+
+    .error-text {
+      display: block;
+      font-size: 12px;
+      color: #ef4444;
+      margin-top: 6px;
+      padding-left: 4px;
+    }
+
+    .send-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      height: 54px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .send-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+    }
+
+    .send-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .send-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ============================================
+       SUCCESS STATE
+       ============================================ */
+    .success-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 0;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      margin-bottom: 20px;
+      animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes scaleIn {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .success-icon svg {
+      animation: checkDraw 0.5s ease 0.2s both;
+    }
+
+    @keyframes checkDraw {
+      0% {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+      }
+      100% {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 0;
+      }
+    }
+
+    .success-title {
+      margin: 0 0 8px 0;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .success-text {
+      margin: 0;
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .success-email {
+      margin: 4px 0 0 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: #22c55e;
     }
 
     /* ============================================
        FOOTER
        ============================================ */
-    .modal-footer {
-      padding: var(--spacing-lg);
-      padding-top: 0;
+    .sheet-footer {
+      padding: 16px 20px;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid #f1f5f9;
+      flex-shrink: 0;
     }
 
-    .full-width {
+    .cancel-btn {
       width: 100%;
-      justify-content: center;
-    }
-
-    /* ============================================
-       BUTTON STYLES (inherited from global)
-       ============================================ */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: var(--spacing-sm);
-      min-height: var(--touch-target-min);
-      padding: var(--spacing-sm) var(--spacing-xl);
-      font-size: var(--text-base);
+      height: 50px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #475569;
+      font-size: 16px;
       font-weight: 600;
-      border-radius: var(--radius-md);
-      border: 2px solid transparent;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
     }
 
-    .btn:focus-visible {
-      box-shadow: var(--focus-ring);
+    .cancel-btn:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
     }
 
-    .btn-lg {
-      min-height: 56px;
-      padding: var(--spacing-md) var(--spacing-xl);
-      font-size: var(--text-lg);
-    }
-
-    .btn-outline {
-      background: white;
-      color: var(--ecom-gray-800);
-      border-color: var(--ecom-gray-300);
-    }
-
-    .btn-outline:hover {
-      background: var(--ecom-gray-100);
-      border-color: var(--ecom-gray-400);
+    .cancel-btn:active {
+      transform: scale(0.98);
     }
 
     /* ============================================
-       RESPONSIVE - MOBILE
+       DESKTOP STYLES
        ============================================ */
-    @media (max-width: 768px) {
-      .modal-overlay {
-        padding: var(--spacing-md);
-        align-items: flex-end;
+    @media (min-width: 768px) {
+      .modal-backdrop {
+        align-items: center;
       }
 
-      .share-modal {
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+      .modal-sheet {
+        border-radius: 24px;
         max-height: 90vh;
-        overflow-y: auto;
+      }
+
+      .drag-handle {
+        display: none;
       }
 
       @keyframes slideUp {
         from {
           opacity: 0;
-          transform: translateY(100%);
+          transform: scale(0.95) translateY(20px);
         }
         to {
           opacity: 1;
-          transform: translateY(0);
+          transform: scale(1) translateY(0);
         }
-      }
-
-      .modal-header {
-        padding: var(--spacing-lg);
-      }
-
-      .modal-title {
-        font-size: var(--text-lg);
-      }
-
-      .share-options {
-        padding: var(--spacing-md);
-      }
-
-      .share-option {
-        padding: var(--spacing-md);
-        min-height: 72px;
-      }
-
-      .option-icon {
-        width: 48px;
-        height: 48px;
-      }
-
-      .option-icon i {
-        font-size: 1.5rem;
-      }
-
-      .option-title {
-        font-size: var(--text-base);
-      }
-
-      .modal-footer {
-        padding: var(--spacing-md);
-        padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
       }
     }
   `]
 })
 export class ShareModalComponent implements OnChanges, AfterViewInit {
-  @ViewChild('closeButton') closeButton!: ElementRef<HTMLButtonElement>;
-  @ViewChild('modalOverlay') modalOverlay!: ElementRef<HTMLDivElement>;
+  @ViewChild('closeBtn') closeBtn!: ElementRef<HTMLButtonElement>;
+  @ViewChild('modalSheet') modalSheet!: ElementRef<HTMLDivElement>;
 
   isOpen = input<boolean>(false);
   documentNumber = input<string>('');
@@ -455,27 +665,37 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   documentType = input<'cotizacion' | 'factura'>('cotizacion');
 
   closed = output<void>();
-  copied = signal(false);
+
+  emailMode = signal(false);
+  emailSent = signal(false);
+  emailFocused = signal(false);
+  emailTo = '';
+  isSending = signal(false);
 
   private previousActiveElement: HTMLElement | null = null;
 
   constructor(private shareService: ShareService) { }
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['clientEmail'] && this.clientEmail()) {
+      this.emailTo = this.clientEmail();
+    }
+
     if (changes['isOpen']) {
       if (this.isOpen()) {
-        // Store the currently focused element
+        this.emailMode.set(false);
+        this.emailSent.set(false);
+        this.isSending.set(false);
+        this.emailTo = this.clientEmail() || '';
         this.previousActiveElement = document.activeElement as HTMLElement;
-        // Focus the close button when modal opens
+
         setTimeout(() => {
-          this.closeButton?.nativeElement?.focus();
+          this.closeBtn?.nativeElement?.focus();
         }, 100);
-        // Prevent body scroll
+
         document.body.style.overflow = 'hidden';
       } else {
-        // Restore body scroll
         document.body.style.overflow = '';
-        // Return focus to previous element
         if (this.previousActiveElement) {
           this.previousActiveElement.focus();
         }
@@ -484,10 +704,9 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // Initial focus if modal is already open
     if (this.isOpen()) {
       setTimeout(() => {
-        this.closeButton?.nativeElement?.focus();
+        this.closeBtn?.nativeElement?.focus();
       }, 100);
     }
   }
@@ -497,8 +716,8 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     return this.documentNumber() ? `${type} N° ${this.documentNumber()}` : type;
   }
 
-  onOverlayClick(event: MouseEvent): void {
-    if ((event.target as HTMLElement).classList.contains('modal-overlay')) {
+  onBackdropClick(event: MouseEvent): void {
+    if ((event.target as HTMLElement).classList.contains('modal-backdrop')) {
       this.close();
     }
   }
@@ -508,7 +727,25 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     this.closed.emit();
   }
 
-  shareWhatsApp(): void {
+  async shareWhatsApp() {
+    if (this.pdfUrl() && typeof navigator.share === 'function') {
+      try {
+        const response = await fetch(this.pdfUrl());
+        const blob = await response.blob();
+        const fileName = `${this.documentNumber() || 'documento'}.pdf`;
+        const title = `Cotización ${this.documentNumber()}`;
+        const text = this.message();
+
+        const shared = await this.shareService.shareFile(blob, fileName, title, text);
+        if (shared) {
+          this.close();
+          return;
+        }
+      } catch (e) {
+        console.warn('Native share failed, falling back to WhatsApp link', e);
+      }
+    }
+
     const options: ShareOptions = {
       phoneNumber: this.clientPhone(),
       message: this.message(),
@@ -522,26 +759,37 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     this.close();
   }
 
-  shareEmail(): void {
-    const options: ShareOptions = {
-      email: this.clientEmail(),
-      message: this.message(),
-      clientName: this.clientName(),
-      documentType: this.documentType(),
-      documentNumber: this.documentNumber()
-    };
-
-    this.shareService.shareViaEmail(options);
-    this.close();
+  toggleEmailMode(): void {
+    this.emailMode.update(v => !v);
   }
 
-  async copyLink(): Promise<void> {
-    // For now, copy the document info since we don't have a real URL
-    const textToCopy = this.pdfUrl() || `Cotización ${this.documentNumber()} - ECOMSERV`;
-    const success = await this.shareService.copyToClipboard(textToCopy);
-    if (success) {
-      this.copied.set(true);
-      setTimeout(() => this.copied.set(false), 2000);
-    }
+  isValidEmail(): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(this.emailTo);
+  }
+
+  sendEmail(): void {
+    if (!this.isValidEmail() || this.isSending()) return;
+
+    this.isSending.set(true);
+
+    const request = {
+      toEmail: this.emailTo,
+      documentNumber: this.documentNumber(),
+      clientName: this.clientName(),
+      attachPdf: true
+    };
+
+    this.shareService.sendEmail(request).subscribe({
+      next: () => {
+        this.isSending.set(false);
+        this.emailSent.set(true);
+      },
+      error: (err) => {
+        console.error('Email error:', err);
+        this.isSending.set(false);
+        alert('Error al enviar el correo. Por favor intente nuevamente.');
+      }
+    });
   }
 }

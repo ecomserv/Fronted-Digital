@@ -1,4 +1,4 @@
-import { Component, input, signal, computed } from '@angular/core';
+import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PdfService, QuoteData } from '../../../core/services/pdf.service';
@@ -9,353 +9,576 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
   imports: [CommonModule],
   template: `
     <div class="preview-container">
-      <!-- Preview Header - Minimalista blanco -->
-      <div class="preview-header">
-        <div class="preview-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-          <span>Vista Previa del Documento</span>
-        </div>
-        <div class="preview-actions" role="group" aria-label="Controles de vista previa">
-          <button
-            type="button"
-            class="preview-btn"
-            [class.active]="!isMobileView()"
-            (click)="isMobileView.set(false)"
-            title="Vista de escritorio"
-            [attr.aria-pressed]="!isMobileView()"
-            aria-label="Vista de escritorio">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="preview-btn"
-            [class.active]="isMobileView()"
-            (click)="isMobileView.set(true)"
-            title="Vista móvil"
-            [attr.aria-pressed]="isMobileView()"
-            aria-label="Vista móvil">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-              <line x1="12" y1="18" x2="12.01" y2="18"/>
-            </svg>
-          </button>
-          <div class="divider" aria-hidden="true"></div>
-          <button
-            type="button"
-            class="preview-btn"
-            (click)="zoomOut()"
-            title="Alejar vista"
-            [disabled]="zoom() <= 0.5"
-            aria-label="Alejar vista">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
-            </svg>
-          </button>
-          <span class="zoom-display" aria-live="polite">{{ zoomPercent() }}%</span>
-          <button
-            type="button"
-            class="preview-btn"
-            (click)="zoomIn()"
-            title="Acercar vista"
-            [disabled]="zoom() >= 1.5"
-            aria-label="Acercar vista">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="11" y1="8" x2="11" y2="14"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Preview Content -->
-      <div class="preview-scroll">
-        @if (quoteData()) {
-          <div
-            class="pdf-wrapper"
-            [class.mobile-view]="isMobileView()"
-            [style.transform]="'scale(' + zoom() + ')'"
-            [style.transform-origin]="'top center'">
-            <div class="pdf-content" [innerHTML]="sanitizedHtml()"></div>
+      <!-- Header -->
+      <header class="preview-header">
+        <div class="header-left">
+          <div class="icon-wrapper">
+            <i class="pi pi-file-pdf"></i>
           </div>
+          <span class="header-title">Vista Previa</span>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <div class="preview-body" #scrollContainer>
+        @if (quoteData()) {
+          @if (isMobile()) {
+            <!-- MOBILE: Thumbnail View -->
+            <div class="mobile-view">
+              <!-- Mini PDF Thumbnail -->
+              <div class="pdf-thumbnail" (click)="openFullscreen()">
+                <div class="thumbnail-content" [innerHTML]="sanitizedHtml()"></div>
+                <div class="thumbnail-overlay">
+                  <div class="overlay-icon">
+                    <i class="pi pi-search-plus"></i>
+                  </div>
+                  <span>Tocar para ampliar</span>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="action-buttons">
+                <button class="action-btn primary" (click)="onDownload.emit()">
+                  <i class="pi pi-download"></i>
+                  <span>Guardar PDF</span>
+                </button>
+                <button class="action-btn secondary" (click)="onShare.emit()">
+                  <i class="pi pi-share-alt"></i>
+                  <span>Compartir</span>
+                </button>
+              </div>
+            </div>
+          } @else {
+            <!-- DESKTOP: Full PDF Preview -->
+            <div class="doc-wrapper" [style.transform]="'scale(' + docScale() + ')'">
+              <div class="doc-paper" [innerHTML]="sanitizedHtml()"></div>
+            </div>
+          }
         } @else {
-          <div class="empty-state">
-            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-            </svg>
-            <h3>Sin datos para mostrar</h3>
-            <p>Complete el formulario para ver la vista previa del documento.</p>
+          <div class="empty-msg">
+            <i class="pi pi-file"></i>
+            <p>Sin datos</p>
           </div>
         }
       </div>
     </div>
+
+    <!-- Fullscreen Modal -->
+    @if (isFullscreenOpen()) {
+      <div class="fullscreen-modal" (click)="closeFullscreen()">
+        <div class="modal-header">
+          <span class="modal-title">{{ quoteData()?.documentNumber || 'Cotización' }}</span>
+          <div class="modal-controls">
+            <button class="control-btn" (click)="zoomOut($event)" title="Alejar">
+              <i class="pi pi-minus"></i>
+            </button>
+            <span class="zoom-level">{{ zoomPercent() }}%</span>
+            <button class="control-btn" (click)="zoomIn($event)" title="Acercar">
+              <i class="pi pi-plus"></i>
+            </button>
+            <button class="control-btn" (click)="resetZoom($event)" title="Restablecer">
+              <i class="pi pi-refresh"></i>
+            </button>
+            <button class="control-btn close-btn" (click)="closeFullscreen()" title="Cerrar">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+        </div>
+        <div class="modal-body" (click)="$event.stopPropagation()">
+          <div class="modal-doc" [style.transform]="'scale(' + modalScale() + ')'">
+            <div class="doc-paper" [innerHTML]="sanitizedHtml()"></div>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
-    :host {
-      display: block;
-      height: 100%;
-    }
-
-    /* ============================================
-       CONTAINER - Blanco y limpio
-       ============================================ */
     .preview-container {
       display: flex;
       flex-direction: column;
       height: 100%;
-      min-height: 600px;
-      background: #ffffff;
-      border-radius: var(--radius-lg);
+      min-height: 400px;
+      background: #475569;
+      border-radius: 12px;
       overflow: hidden;
-      position: relative;
     }
 
-    /* ============================================
-       HEADER - Minimalista blanco
-       ============================================ */
+    /* ===== HEADER ===== */
     .preview-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-md) var(--spacing-lg);
-      background: #ffffff;
-      border-bottom: 1px solid var(--ecom-gray-200);
+      padding: 12px 16px;
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
       flex-shrink: 0;
     }
 
-    .preview-title {
+    .header-left {
       display: flex;
       align-items: center;
-      gap: var(--spacing-sm);
+      gap: 10px;
+    }
+
+    .icon-wrapper {
+      width: 32px;
+      height: 32px;
+      background: #eff6ff;
+      color: #3b82f6;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-title {
       font-weight: 600;
-      font-size: var(--text-base);
-      color: var(--ecom-gray-800);
+      font-size: 15px;
+      color: #1e293b;
     }
 
-    .preview-title svg {
-      color: var(--ecom-gray-600);
+    /* ===== BODY ===== */
+    .preview-body {
+      flex: 1;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
 
-    /* ============================================
-       ACTIONS - Botones claros
-       ============================================ */
-    .preview-actions {
+    /* ===== DESKTOP: DOCUMENT ===== */
+    .doc-wrapper {
+      background: white;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+
+    .doc-paper {
+      width: 794px;
+      min-height: 1123px;
+      background: white;
+    }
+
+    /* ===== MOBILE VIEW ===== */
+    .mobile-view {
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* PDF Thumbnail */
+    .pdf-thumbnail {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .pdf-thumbnail:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+
+    .pdf-thumbnail:active {
+      transform: scale(0.98);
+    }
+
+    .thumbnail-content {
+      width: 794px;
+      min-height: 1123px;
+      transform: scale(0.42);
+      transform-origin: top left;
+      pointer-events: none;
+    }
+
+    .thumbnail-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 20px;
+      gap: 8px;
+      color: white;
+      opacity: 1;
+      transition: opacity 0.2s;
+    }
+
+    .overlay-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(8px);
+      border-radius: 50%;
       display: flex;
       align-items: center;
-      gap: var(--spacing-xs);
-      background: var(--ecom-gray-100);
-      padding: var(--spacing-xs);
-      border-radius: var(--radius-md);
+      justify-content: center;
+      font-size: 20px;
     }
 
-    .divider {
-      width: 1px;
-      height: 24px;
-      background: var(--ecom-gray-300);
-      margin: 0 var(--spacing-xs);
+    .thumbnail-overlay span {
+      font-size: 14px;
+      font-weight: 500;
     }
 
-    .preview-btn {
-      min-width: var(--touch-target-min);
-      min-height: var(--touch-target-min);
+    /* Action Buttons */
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
       border: none;
-      background: transparent;
-      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+    }
+
+    .action-btn i {
+      font-size: 18px;
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, #1e40af, #3b82f6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+    }
+
+    .action-btn.primary:active {
+      transform: scale(0.96);
+    }
+
+    .action-btn.secondary {
+      background: white;
+      color: #1e293b;
+      border: 2px solid #e2e8f0;
+    }
+
+    .action-btn.secondary:active {
+      background: #f1f5f9;
+    }
+
+    /* ===== FULLSCREEN MODAL ===== */
+    .fullscreen-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      color: white;
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .modal-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border-radius: 8px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--ecom-gray-600);
-      transition: all 0.15s ease;
+      font-size: 16px;
+      transition: background 0.2s;
     }
 
-    .preview-btn:hover:not(:disabled) {
-      background: var(--ecom-gray-200);
-      color: var(--ecom-gray-900);
+    .control-btn:hover {
+      background: rgba(255,255,255,0.25);
     }
 
-    .preview-btn:focus-visible {
-      box-shadow: var(--focus-ring);
+    .control-btn:active {
+      background: rgba(255,255,255,0.35);
     }
 
-    .preview-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+    .control-btn.close-btn {
+      background: rgba(239, 68, 68, 0.8);
+      margin-left: 8px;
     }
 
-    .preview-btn.active {
-      background: var(--ecom-gray-800);
+    .control-btn.close-btn:hover {
+      background: rgba(239, 68, 68, 1);
+    }
+
+    .zoom-level {
       color: white;
-    }
-
-    .zoom-display {
-      font-size: var(--text-sm);
+      font-size: 14px;
       font-weight: 600;
-      color: var(--ecom-gray-700);
-      min-width: 48px;
+      min-width: 50px;
       text-align: center;
     }
 
-    /* ============================================
-       SCROLL AREA - Fondo BLANCO PURO
-       ============================================ */
-    .preview-scroll {
+    .modal-body {
       flex: 1;
       overflow: auto;
-      background: #ffffff;
-      padding: var(--spacing-lg);
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+      padding: 16px;
     }
 
-    /* ============================================
-       PDF WRAPPER
-       ============================================ */
-    .pdf-wrapper {
-      width: 100%;
-      max-width: 210mm;
-      margin: 0 auto;
-      transition: transform 0.2s ease;
+    .modal-doc {
+      background: white;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5);
+      border-radius: 4px;
+      overflow: hidden;
+      transform-origin: top left;
+      flex-shrink: 0;
     }
 
-    .pdf-wrapper.mobile-view {
-      max-width: 375px;
-    }
-
-    .pdf-content {
-      background: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      border-radius: var(--radius-sm);
-    }
-
-    /* ============================================
-       EMPTY STATE - Limpio y claro
-       ============================================ */
-    .empty-state {
+    /* ===== EMPTY ===== */
+    .empty-msg {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 400px;
+      gap: 12px;
+      color: #94a3b8;
+      padding: 60px;
       text-align: center;
-      padding: var(--spacing-2xl) var(--spacing-xl);
-      background: #ffffff;
-      border-radius: var(--radius-lg);
     }
 
-    .empty-state svg {
-      stroke: var(--ecom-gray-300);
-      margin-bottom: var(--spacing-lg);
-    }
+    .empty-msg i { font-size: 3rem; }
 
-    .empty-state h3 {
-      margin: 0 0 var(--spacing-sm);
-      font-size: var(--text-xl);
-      font-weight: 600;
-      color: var(--ecom-gray-700);
-    }
-
-    .empty-state p {
-      margin: 0;
-      font-size: var(--text-base);
-      color: var(--ecom-gray-500);
-      max-width: 280px;
-      line-height: 1.6;
-    }
-
-    /* ============================================
-       RESPONSIVE - MOBILE
-       ============================================ */
-    @media (max-width: 1200px) {
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
       .preview-container {
         border-radius: 0;
-        min-height: 100%;
+        background: #f1f5f9;
       }
 
       .preview-header {
-        padding: var(--spacing-sm) var(--spacing-md);
+        padding: 10px 12px;
       }
 
-      .preview-title span {
-        display: none;
-      }
-
-      .preview-scroll {
-        padding: var(--spacing-md);
+      .preview-body {
+        padding: 16px;
+        align-items: flex-start;
       }
     }
 
-    @media (max-width: 768px) {
-      .preview-actions {
-        padding: 4px;
-        gap: 4px;
+    @media (max-width: 400px) {
+      .pdf-thumbnail {
+        height: 360px;
       }
 
-      .preview-btn {
-        min-width: 40px;
-        min-height: 40px;
+      .thumbnail-content {
+        transform: scale(0.36);
       }
 
-      .preview-btn svg {
-        width: 18px;
-        height: 18px;
-      }
-
-      .divider {
-        height: 20px;
-        margin: 0 4px;
-      }
-
-      .zoom-display {
-        font-size: 0.875rem;
-        min-width: 40px;
+      .action-btn {
+        padding: 12px 16px;
+        font-size: 14px;
       }
     }
   `]
 })
-export class PdfPreviewComponent {
+export class PdfPreviewComponent implements OnInit {
   quoteData = input<QuoteData | null>(null);
+  onDownload = output<void>();
+  onShare = output<void>();
 
-  isMobileView = signal(false);
-  zoom = signal(1);
+  @ViewChild('scrollContainer') scrollContainer!: ElementRef<HTMLDivElement>;
 
-  zoomPercent = computed(() => Math.round(this.zoom() * 100));
+  containerWidth = signal(600);
+  isMobile = signal(false);
+  isFullscreenOpen = signal(false);
+
+  // Zoom state for fullscreen
+  modalScale = signal(0.9);
+  translateX = signal(0);
+  translateY = signal(0);
+
+  // Touch gesture state
+  private lastTouchDistance = 0;
+  private isDragging = false;
+  private dragStart = { x: 0, y: 0 };
+  private lastTranslate = { x: 0, y: 0 };
+
+  // Desktop scale calculation
+  docScale = computed(() => {
+    const container = this.containerWidth();
+    const docWidth = 794;
+    const padding = 40;
+    const available = Math.max(container - padding, 300);
+    const scale = available / docWidth;
+    return Math.min(Math.max(scale, 0.3), 1.0);
+  });
+
+  zoomPercent = computed(() => Math.round(this.modalScale() * 100));
 
   sanitizedHtml = computed<SafeHtml>(() => {
     const data = this.quoteData();
     if (!data) return '';
-
-    const html = this.pdfService.generatePdfHtml(data);
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generatePdfHtml(data));
   });
 
   constructor(
     private pdfService: PdfService,
     private sanitizer: DomSanitizer
-  ) { }
+  ) {
+    effect(() => {
+      if (this.quoteData()) {
+        setTimeout(() => this.measure(), 100);
+      }
+    });
+  }
 
-  zoomIn(): void {
-    if (this.zoom() < 1.5) {
-      this.zoom.update(z => Math.round((z + 0.1) * 10) / 10);
+  ngOnInit(): void {
+    this.checkMobile();
+    setTimeout(() => this.measure(), 50);
+  }
+
+  @HostListener('window:resize')
+  onResize() {
+    this.checkMobile();
+    this.measure();
+  }
+
+  openFullscreen() {
+    this.modalScale.set(0.9);
+    this.isFullscreenOpen.set(true);
+    this.isFullscreenOpen.set(true);
+    document.body.style.overflow = 'hidden';
+  }
+
+  closeFullscreen() {
+    this.isFullscreenOpen.set(false);
+    document.body.style.overflow = '';
+  }
+
+  zoomIn(event: Event) {
+    event.stopPropagation();
+    const newScale = Math.min(this.modalScale() + 0.1, 2.5);
+    this.modalScale.set(newScale);
+  }
+
+  zoomOut(event: Event) {
+    event.stopPropagation();
+    const newScale = Math.max(this.modalScale() - 0.1, 0.2);
+    this.modalScale.set(newScale);
+  }
+
+  resetZoom(event: Event) {
+    event.stopPropagation();
+    this.modalScale.set(0.9);
+    this.translateX.set(0);
+    this.translateY.set(0);
+  }
+
+  getModalTransform(): string {
+    return `translate(${this.translateX()}px, ${this.translateY()}px) scale(${this.modalScale()})`;
+  }
+
+  // Touch handlers for fullscreen modal
+  onTouchStart(event: TouchEvent) {
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      this.lastTouchDistance = this.getDistance(touch1, touch2);
+    } else if (event.touches.length === 1) {
+      this.isDragging = true;
+      const touch = event.touches[0];
+      this.dragStart = { x: touch.clientX, y: touch.clientY };
+      this.lastTranslate = { x: this.translateX(), y: this.translateY() };
     }
   }
 
-  zoomOut(): void {
-    if (this.zoom() > 0.5) {
-      this.zoom.update(z => Math.round((z - 0.1) * 10) / 10);
+  onTouchMove(event: TouchEvent) {
+    event.preventDefault();
+
+    if (event.touches.length === 2) {
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      const currentDistance = this.getDistance(touch1, touch2);
+
+      if (this.lastTouchDistance > 0) {
+        const scaleDelta = currentDistance / this.lastTouchDistance;
+        const newScale = Math.min(Math.max(this.modalScale() * scaleDelta, 0.2), 2.5);
+        this.modalScale.set(newScale);
+      }
+
+      this.lastTouchDistance = currentDistance;
+    } else if (event.touches.length === 1 && this.isDragging) {
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - this.dragStart.x;
+      const deltaY = touch.clientY - this.dragStart.y;
+
+      this.translateX.set(this.lastTranslate.x + deltaX);
+      this.translateY.set(this.lastTranslate.y + deltaY);
+    }
+  }
+
+  onTouchEnd() {
+    this.isDragging = false;
+    this.lastTouchDistance = 0;
+  }
+
+  private getDistance(touch1: Touch, touch2: Touch): number {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  private checkMobile() {
+    this.isMobile.set(window.innerWidth <= 768);
+  }
+
+  private measure() {
+    const el = this.scrollContainer?.nativeElement;
+    if (el && el.clientWidth > 0) {
+      this.containerWidth.set(el.clientWidth);
     }
   }
 }

@@ -1,14 +1,18 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { PdfService, QuoteData, DocumentItem } from '../../../core/services/pdf.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ApiService, CreateQuoteRequest } from '../../../core/services/api.service';
 import { ShareModalComponent } from '../../../shared/components/share-modal/share-modal.component';
 import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-preview.component';
 
 @Component({
   selector: 'app-quote-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, ShareModalComponent, PdfPreviewComponent],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, ShareModalComponent, PdfPreviewComponent],
+  encapsulation: ViewEncapsulation.None,
   template: `
     <!-- Skip Link for Accessibility -->
     <a href="#main-form" class="skip-link">Saltar al formulario</a>
@@ -17,28 +21,43 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
       <!-- Header -->
       <header class="page-header">
         <div class="header-content">
-          <div class="brand">
+          <a routerLink="/dashboard" class="brand" title="Ir al Dashboard">
             <img src="/logo-ecomserv.png" alt="ECOMSERV Logo" class="brand-logo" />
             <span class="brand-name">ECOMSERV</span>
-          </div>
+          </a>
           <div class="header-actions">
             <button
               type="button"
               class="header-btn"
               (click)="downloadPdf()"
-              aria-label="Descargar documento en PDF">
-              <i class="pi pi-download" aria-hidden="true"></i>
-              <span>Descargar PDF</span>
+              [disabled]="isSaving()"
+              aria-label="Guardar y descargar documento en PDF">
+              @if (isSaving()) {
+                <span class="spinner-btn"></span>
+                <span>Guardando...</span>
+              } @else {
+                <i class="pi pi-download" aria-hidden="true"></i>
+                <span class="btn-text">Guardar PDF</span>
+              }
             </button>
             <button
               type="button"
               class="header-btn"
               [class.active]="showPreview()"
-              (click)="showPreview.set(!showPreview())"
+              (click)="togglePreview()"
               [attr.aria-pressed]="showPreview()"
               aria-label="Alternar vista previa">
               <i class="pi" [class.pi-eye]="!showPreview()" [class.pi-pencil]="showPreview()" aria-hidden="true"></i>
               <span>{{ showPreview() ? 'Editar' : 'Vista Previa' }}</span>
+            </button>
+            <button
+              type="button"
+              class="header-btn logout-btn"
+              (click)="goBack()"
+              title="Volver al inicio"
+              aria-label="Volver al inicio">
+              <i class="pi pi-arrow-left" aria-hidden="true"></i>
+              <span class="btn-text">Volver</span>
             </button>
           </div>
         </div>
@@ -63,11 +82,11 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
                     </label>
                     <input
                       id="documentNumber"
-                      class="form-input readonly"
+                      class="form-input"
                       formControlName="documentNumber"
-                      readonly
+                      placeholder="CES-XXXXX"
                       aria-describedby="documentNumber-hint">
-                    <span id="documentNumber-hint" class="form-hint">Generado automáticamente</span>
+                    <span id="documentNumber-hint" class="form-hint">Editable: Dejar en CES-XXXXX para automático</span>
                   </div>
                   <div class="form-group">
                     <label class="form-label" for="currency">
@@ -130,32 +149,20 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
                     <span id="clientRuc-hint" class="form-hint">11 dígitos</span>
                   </div>
                   <div class="form-group">
-                    <label class="form-label" for="clientPhone">
-                      Teléfono
+                    <label class="form-label" for="clientMobile">
+                      Móvil
                     </label>
                     <input
-                      id="clientPhone"
+                      id="clientMobile"
                       class="form-input"
-                      formControlName="clientPhone"
-                      placeholder="01 234 5678"
+                      formControlName="clientMobile"
+                      placeholder="999 888 777"
                       type="tel"
                       autocomplete="tel">
                   </div>
                 </div>
 
                 <div class="form-row">
-                  <div class="form-group">
-                    <label class="form-label" for="clientMovil">
-                      Celular
-                    </label>
-                    <input
-                      id="clientMovil"
-                      class="form-input"
-                      formControlName="clientMovil"
-                      placeholder="999 888 777"
-                      type="tel"
-                      autocomplete="tel">
-                  </div>
                   <div class="form-group">
                     <label class="form-label" for="clientEmail">
                       Correo Electrónico
@@ -214,16 +221,6 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
                   </div>
                 </div>
 
-                <div class="form-group full-width">
-                  <label class="form-label" for="vendedor">
-                    Vendedor
-                  </label>
-                  <input
-                    id="vendedor"
-                    class="form-input"
-                    formControlName="vendedor"
-                    placeholder="Nombre del vendedor">
-                </div>
               </article>
 
               <!-- Items Card -->
@@ -314,16 +311,38 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
                             (input)="updateItemSubtotal(i)">
                         </div>
                         <div class="form-group">
-                          <label class="form-label" [for]="'unitPrice-' + i">Precio Unitario</label>
+                          <label class="form-label" [for]="'priceInput-' + i">
+                            Precio Unitario
+                            <div class="segmented-control">
+                              <button 
+                                type="button" 
+                                class="segment-btn" 
+                                [class.active]="!item.get('includesIgv')?.value" 
+                                (click)="setIgvMode(i, false)"
+                                title="El precio ingresado es sin IGV">
+                                Base
+                              </button>
+                              <button 
+                                type="button" 
+                                class="segment-btn" 
+                                [class.active]="item.get('includesIgv')?.value" 
+                                (click)="setIgvMode(i, true)"
+                                title="El precio ingresado ya incluye IGV">
+                                Final (+IGV)
+                              </button>
+                            </div>
+                          </label>
                           <input
-                            [id]="'unitPrice-' + i"
+                            [id]="'priceInput-' + i"
                             class="form-input"
-                            formControlName="unitPrice"
+                            formControlName="priceInput"
                             type="number"
                             inputmode="decimal"
                             min="0"
-                            step="0.01"
+                            step="1"
                             (input)="updateItemSubtotal(i)">
+                          <!-- Hidden unitPrice control for internal calculation -->
+                          <input type="hidden" formControlName="unitPrice">
                         </div>
                         <div class="form-group">
                           <label class="form-label" [for]="'subtotal-' + i">Subtotal</label>
@@ -401,7 +420,10 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
             class="preview-section"
             [class.hidden-mobile]="!showPreview()"
             aria-label="Vista previa del documento">
-            <app-pdf-preview [quoteData]="currentQuoteData()" />
+            <app-pdf-preview 
+              [quoteData]="currentQuoteData()" 
+              (onDownload)="downloadPdf()"
+              (onShare)="openShareModal()" />
           </section>
         </div>
       </main>
@@ -411,7 +433,7 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
         [isOpen]="isShareModalOpen()"
         [documentNumber]="quoteForm.get('documentNumber')?.value"
         [clientName]="quoteForm.get('clientName')?.value"
-        [clientPhone]="quoteForm.get('clientPhone')?.value"
+        [clientPhone]="quoteForm.get('clientMobile')?.value"
         [clientEmail]="quoteForm.get('clientEmail')?.value"
         [documentType]="'cotizacion'"
         (closed)="isShareModalOpen.set(false)"
@@ -429,6 +451,32 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
               </button>
               <button type="button" class="btn btn-danger btn-lg" (click)="executeConfirm()">
                 {{ confirmDialogAction() }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Download Success Modal -->
+      @if (showDownloadModal()) {
+        <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="download-title">
+          <div class="download-modal" (click)="$event.stopPropagation()">
+            <div class="download-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            </div>
+            <h3 id="download-title">¡Cotización Guardada!</h3>
+            <p>La cotización <strong>{{ savedDocumentNumber() }}</strong> se ha guardado correctamente.</p>
+            <p class="download-question">¿Deseas descargar el PDF ahora?</p>
+            <div class="download-actions">
+              <button type="button" class="btn btn-outline btn-lg" (click)="closeDownloadModal(false)">
+                No, volver al Dashboard
+              </button>
+              <button type="button" class="btn btn-primary btn-lg" (click)="closeDownloadModal(true)">
+                <i class="pi pi-download" aria-hidden="true"></i>
+                <span>Sí, descargar PDF</span>
               </button>
             </div>
           </div>
@@ -539,8 +587,32 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
       color: white;
     }
 
+    .logout-btn:hover {
+      background: var(--ecom-error-50);
+      border-color: var(--ecom-error-300);
+      color: var(--ecom-error-700);
+    }
+
     .header-btn i {
       font-size: 1.25rem;
+    }
+
+    .header-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .spinner-btn {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--ecom-gray-300);
+      border-top-color: var(--ecom-primary-600);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     /* ============================================
@@ -1040,25 +1112,105 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
     }
 
     /* ============================================
-       RESPONSIVE - TABLET
+       PREVIEW SECTION
        ============================================ */
-    @media (max-width: 1200px) {
+    .preview-section {
+      height: calc(100vh - var(--header-height) - 60px);
+      min-height: 500px;
+      position: sticky;
+      top: calc(var(--header-height) + 20px);
+    }
+
+    /* ============================================
+       RESPONSIVE DESIGN
+       ============================================ */
+    @media (max-width: 1024px) {
       .content-grid {
         grid-template-columns: 1fr;
       }
 
+      /* On mobile: show form OR preview, not both - CENTERED */
+      .form-section {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0;
+      }
+
+      .form-section .quote-form {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .form-section .form-card {
+        margin-left: 0;
+        margin-right: 0;
+        border-radius: var(--radius-md);
+      }
+
       .preview-section {
-        position: fixed;
-        inset: var(--header-height) 0 0 0;
+        display: block;
+        position: relative;
+        top: 0;
+        width: 100%;
+        height: calc(100vh - var(--header-height) - 40px);
+        min-height: 500px;
         border-radius: 0;
-        max-height: none;
-        z-index: 50;
         border: none;
       }
 
-      .hidden-mobile {
-        display: none !important;
+      .form-section.hidden-mobile {
+        display: none;
       }
+
+      .preview-section.hidden-mobile {
+        display: none;
+      }
+    }
+
+    /* Segmented Control - Modern Pill Style - GLOBAL */
+    .form-group label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      background-color: #f3f4f6;
+      padding: 3px;
+      border-radius: 9999px;
+      border: 1px solid #e5e7eb;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .segment-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .segment-btn:hover {
+      color: #374151;
+      background-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .segment-btn.active {
+      background-color: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(229, 231, 235, 0.5);
     }
 
     /* ============================================
@@ -1066,15 +1218,28 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
        ============================================ */
     @media (max-width: 768px) {
       .header-content {
-        padding: 0 var(--spacing-md);
+        padding: 0 12px;
+        width: 100%;
+        box-sizing: border-box;
+        max-width: none;
+      }
+
+      .brand {
+        flex: 1;
+        min-width: 0;
       }
 
       .brand-logo {
-        height: 32px;
+        height: 28px;
       }
 
       .brand-name {
-        font-size: var(--text-lg);
+        font-size: var(--text-base);
+        display: none;
+      }
+
+      .header-actions {
+        gap: 6px;
       }
 
       .header-btn span {
@@ -1082,13 +1247,20 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
       }
 
       .header-btn {
-        padding: var(--spacing-sm);
-        min-width: var(--touch-target-min);
+        padding: 8px;
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .header-btn i {
+        font-size: 1.3rem;
       }
 
       .main-content {
-        padding: var(--spacing-lg) var(--spacing-md);
+        padding: var(--spacing-md);
         padding-bottom: calc(var(--footer-height) + var(--spacing-lg));
+        width: 100%;
+        box-sizing: border-box;
       }
 
       .form-card {
@@ -1114,6 +1286,8 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
         grid-template-columns: 1fr;
         gap: var(--spacing-md);
       }
+
+
 
       .item-values {
         grid-template-columns: 1fr 1fr;
@@ -1172,8 +1346,119 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
     }
 
     /* ============================================
+       MODAL STYLES
+       ============================================ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .confirm-dialog,
+    .download-modal {
+      background: white;
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .confirm-dialog h3,
+    .download-modal h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 12px;
+    }
+
+    .confirm-dialog p,
+    .download-modal p {
+      color: #64748b;
+      font-size: 15px;
+      margin: 0 0 8px;
+    }
+
+    .confirm-actions,
+    .download-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .confirm-actions button,
+    .download-actions button {
+      flex: 1 1 100%;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    @media (min-width: 400px) {
+      .confirm-actions button,
+      .download-actions button {
+        flex: 1 1 auto;
+      }
+    }
+
+    .download-icon {
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      color: white;
+    }
+
+    .download-question {
+      font-weight: 600;
+      color: #0f172a !important;
+      margin-top: 16px !important;
+    }
+
+    /* ============================================
        PRINT STYLES
        ============================================ */
+      /* ============================================
+       RESPONSIVE - GRID & VISIBILITY
+       ============================================ */
+    @media (max-width: 1024px) {
+      .content-grid {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-lg);
+      }
+
+      .preview-section.hidden-mobile {
+        display: none !important;
+      }
+
+      .form-section.hidden-mobile {
+        display: none !important;
+      }
+      
+      /* Make sure preview section takes full width/height when visible */
+      .content-grid.preview-active {
+        /* On mobile, if preview is active, form is hidden, so preview takes 1fr */
+      }
+      
+      .preview-section {
+        min-height: calc(100vh - 150px);
+      }
+    }
+
+    /* Print styles */
     @media print {
       .page-header,
       .form-actions,
@@ -1195,7 +1480,13 @@ import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-
 })
 export class QuoteFormComponent implements OnInit, OnDestroy {
   quoteForm: FormGroup;
+
+  // Controls visibility on mobile (false = form, true = preview)
   showPreview = signal(false);
+
+  // Used for any desktop-specific conditional classes (currently just returns true for desktop layout)
+  isDesktopPreviewVisible = computed(() => true);
+
   isShareModalOpen = signal(false);
 
   // Toast notifications
@@ -1214,9 +1505,20 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   private formVersion = signal(0);
   private formSubscription: any;
 
+  isSaving = signal(false);
+
+  // Download modal
+  showDownloadModal = signal(false);
+  savedDocumentNumber = signal('');
+  private savedPdfBlob: Blob | null = null;
+
   constructor(
     private fb: FormBuilder,
-    private pdfService: PdfService
+    private pdfService: PdfService,
+    private authService: AuthService,
+    private apiService: ApiService,
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     const initialData = this.pdfService.createNewQuote();
 
@@ -1226,19 +1528,18 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       status: [initialData.status],
       clientName: ['', Validators.required],
       clientRuc: [''],
-      clientPhone: [''],
-      clientMovil: [''],
+
+      clientMobile: [''],
       clientReference: [''],
       clientAddress: [''],
       clientEmail: ['', Validators.email],
-      vendedor: [''],
       atte: [''],
       items: this.fb.array([]),
       notes: [''],
       termsAndConditions: [initialData.termsAndConditions]
     });
 
-    this.addItem();
+    // Don't add empty item here - will be added in ngOnInit for new quotes only
   }
 
   ngOnInit(): void {
@@ -1247,8 +1548,28 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       this.formVersion.update(v => v + 1);
     });
 
-    // Load saved data from localStorage if exists
-    this.loadSavedData();
+    // Check for edit mode
+    this.route.queryParams.subscribe(params => {
+      if (params['edit']) {
+        const docNumber = params['edit'];
+        this.loadQuoteData(docNumber);
+      } else {
+        // New quote - start fresh with one empty item
+        this.addItem();
+
+        // Fetch next document number
+        this.apiService.getNextDocumentNumber().subscribe({
+          next: (res) => {
+            this.quoteForm.patchValue({ documentNumber: res.documentNumber });
+          },
+          error: (err) => console.error('Error fetching next document number', err)
+        });
+        // Clear any saved draft
+        try {
+          localStorage.removeItem('ecomserv_quote_draft');
+        } catch (e) { }
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -1275,6 +1596,10 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     }
   }
 
+  togglePreview(): void {
+    this.showPreview.update(v => !v);
+  }
+
   // Save data to localStorage periodically
   private saveData(): void {
     try {
@@ -1293,12 +1618,11 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
         this.quoteForm.patchValue({
           clientName: data.clientName || '',
           clientRuc: data.clientRuc || '',
-          clientPhone: data.clientPhone || '',
-          clientMovil: data.clientMovil || '',
+
+          clientMobile: data.clientMobile || '',
           clientReference: data.clientReference || '',
           clientAddress: data.clientAddress || '',
           clientEmail: data.clientEmail || '',
-          vendedor: data.vendedor || '',
           atte: data.atte || '',
           notes: data.notes || ''
         });
@@ -1349,11 +1673,10 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       clientName: formValue.clientName,
       clientRuc: formValue.clientRuc,
       clientAddress: formValue.clientAddress,
-      clientPhone: formValue.clientPhone,
+
       clientEmail: formValue.clientEmail,
       clientReference: formValue.clientReference,
-      clientMovil: formValue.clientMovil,
-      vendedor: formValue.vendedor,
+      clientMobile: formValue.clientMobile,
       atte: formValue.atte,
       items,
       ...totals,
@@ -1384,11 +1707,122 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       unidadMedida: ['UND'],
       description: ['', Validators.required],
       quantity: [1, [Validators.required, Validators.min(1)]],
-      unitPrice: [0, [Validators.required, Validators.min(0)]]
+      unitPrice: [0, [Validators.required, Validators.min(0)]],
+      // New fields for IGV toggle logic
+      priceInput: [0, [Validators.required, Validators.min(0)]],
+      includesIgv: [false]
     });
+
+    // Subscribe to price changes
+    const priceInputControl = itemGroup.get('priceInput');
+    const includesIgvControl = itemGroup.get('includesIgv');
+    const unitPriceControl = itemGroup.get('unitPrice');
+
+    const updateUnitPrice = () => {
+      const price = priceInputControl?.value || 0;
+      const includesIgv = includesIgvControl?.value;
+
+      // If price includes IGV, calculate net price (Price / 1.18)
+      // Otherwise logic is net price = input price
+      const netPrice = includesIgv ? (price / 1.18) : price;
+
+      // Update unitPrice without emitting event to avoid loops if needed
+      unitPriceControl?.setValue(Number(netPrice.toFixed(4)), { emitEvent: false });
+
+      // Since we modified unitPrice manually, we need to manually trigger subtotal update
+      // Finding the index of this new control might be tricky here, 
+      // but updateItemSubtotal handles the calculation based on unitPrice.
+      // We will trigger it from the template (input) event.
+    };
+
+    priceInputControl?.valueChanges.subscribe(updateUnitPrice);
+    includesIgvControl?.valueChanges.subscribe(updateUnitPrice);
 
     this.itemsArray.push(itemGroup);
     this.showToast('Item agregado', 'success');
+  }
+
+  loadQuoteData(documentNumber: string) {
+    this.apiService.getQuoteData(documentNumber).subscribe({
+      next: (data) => {
+        // Populate form
+        this.quoteForm.patchValue({
+          documentNumber: documentNumber, // Keep existing number
+          currency: data.currency,
+          clientName: data.clientName,
+          clientRuc: data.clientRuc,
+          clientAddress: data.clientAddress,
+
+          clientEmail: data.clientEmail,
+          clientReference: data.clientReference,
+          clientMobile: data.clientMobile || '',
+          atte: data.atte,
+          notes: data.notes,
+          validityDays: data.validityDays,
+          deliveryTime: data.deliveryTime,
+          warranty: data.warranty,
+          paymentCondition: data.paymentCondition
+        });
+
+        // Clear existing items and add loaded items
+        this.itemsArray.clear();
+
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            // Use the stored unitPrice as the base price
+            const storedPrice = item.unitPrice || 0;
+
+            const itemGroup = this.fb.group({
+              codigo: [item.code || ''],
+              unidadMedida: [item.unitMeasure || 'UND'],
+              description: [item.description || '', Validators.required],
+              quantity: [item.quantity || 1, [Validators.required, Validators.min(1)]],
+              unitPrice: [storedPrice, [Validators.required, Validators.min(0)]],
+              priceInput: [storedPrice, [Validators.required, Validators.min(0)]],
+              includesIgv: [false]
+            });
+
+            // Re-attach listeners for price updates
+            const priceInputControl = itemGroup.get('priceInput');
+            const includesIgvControl = itemGroup.get('includesIgv');
+            const unitPriceControl = itemGroup.get('unitPrice');
+
+            const updateUnitPrice = () => {
+              const price = priceInputControl?.value || 0;
+              const includesIgv = includesIgvControl?.value;
+              const netPrice = includesIgv ? (price / 1.18) : price;
+              unitPriceControl?.setValue(Number(netPrice.toFixed(4)), { emitEvent: false });
+            };
+
+            priceInputControl?.valueChanges.subscribe(updateUnitPrice);
+            includesIgvControl?.valueChanges.subscribe(updateUnitPrice);
+
+            this.itemsArray.push(itemGroup);
+          });
+        } else {
+          // If no items, add one empty item
+          this.addItem();
+        }
+
+        // Force form update and trigger reactivity
+        this.quoteForm.updateValueAndValidity();
+        this.formVersion.update(v => v + 1);
+
+        this.showToast('Datos de cotización cargados', 'success');
+      },
+      error: (err) => {
+        console.error('Error loading quote data', err);
+        this.showToast('Error al cargar datos de cotización', 'error');
+      }
+    });
+  }
+
+  setIgvMode(index: number, includesIgv: boolean): void {
+    const item = this.itemsArray.at(index);
+    if (item) {
+      item.patchValue({ includesIgv: includesIgv });
+      // Trigger update manually if needed, though valueChanges should handle it
+    }
   }
 
   confirmRemoveItem(index: number): void {
@@ -1411,6 +1845,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   getItemSubtotal(index: number): number {
     const item = this.itemsArray.at(index);
     if (!item) return 0;
+    // We use the calculated unitPrice (net) for subtotal
     return this.pdfService.calculateItemSubtotal(
       item.value.quantity || 0,
       item.value.unitPrice || 0
@@ -1418,6 +1853,13 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   }
 
   updateItemSubtotal(index: number): void {
+    const item = this.itemsArray.at(index);
+    if (!item) return;
+
+    // If this was triggered by unitPrice input (legacy), sync back to priceInput
+    // BUT we are moving to use priceInput as the source of truth.
+    // The valueChanges subscriptions added in addItem handle the unitPrice calculation.
+
     this.itemsArray.at(index)?.updateValueAndValidity();
     this.saveData();
   }
@@ -1425,6 +1867,18 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   formatCurrency(amount: number): string {
     const currency = this.quoteForm?.get('currency')?.value || 'PEN';
     return this.pdfService.formatCurrency(amount, currency);
+  }
+
+  goBack(): void {
+    if (this.quoteForm.dirty) {
+      this.confirmDialogTitle.set('¿Salir sin guardar?');
+      this.confirmDialogMessage.set('Si sale ahora, perderá los cambios no guardados.');
+      this.confirmDialogAction.set('Salir');
+      this.confirmCallback = () => this.router.navigate(['/dashboard']);
+      this.showConfirmDialog.set(true);
+    } else {
+      this.router.navigate(['/dashboard']);
+    }
   }
 
   openShareModal(): void {
@@ -1439,29 +1893,126 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isShareModalOpen.set(true);
+    // Auto-save before sharing to ensure PDF exists on backend
+    this.isSaving.set(true);
+    const quoteData = this.buildQuoteRequest();
+
+    this.apiService.generateQuote(quoteData).subscribe({
+      next: (blob) => {
+        this.isSaving.set(false);
+        this.showToast('Cotización guardada y lista para compartir', 'success');
+        this.isShareModalOpen.set(true);
+
+        // If it was a new quote, we might need to update the form's dirty state
+        this.quoteForm.markAsPristine();
+      },
+      error: (err) => {
+        console.error('Error auto-saving quote before share', err);
+        this.isSaving.set(false);
+        this.showToast('Error al preparar la cotización para compartir', 'error');
+      }
+    });
   }
 
   downloadPdf(): void {
-    const quoteData = this.currentQuoteData();
-    if (!quoteData) return;
+    // Mark all fields as touched to show validation
+    this.quoteForm.markAllAsTouched();
+    this.itemsArray.controls.forEach(control => {
+      (control as FormGroup).markAllAsTouched();
+    });
 
-    const htmlContent = this.pdfService.generatePdfHtml(quoteData);
-
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-
-    const printWindow = window.open(url, '_blank');
-    if (printWindow) {
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          URL.revokeObjectURL(url);
-        }, 500);
-      };
+    if (this.quoteForm.invalid) {
+      this.showToast('Por favor complete los campos obligatorios', 'error');
+      return;
     }
 
-    this.showToast('Documento listo para imprimir', 'success');
+    this.isSaving.set(true);
+    const request = this.buildQuoteRequest();
+
+    this.apiService.generateQuote(request).subscribe({
+      next: (blob) => {
+        this.isSaving.set(false);
+
+        // Store the blob for potential download
+        this.savedPdfBlob = blob;
+        this.savedDocumentNumber.set(request.documentNumber || 'Cotización');
+
+        // Mark form as saved (not dirty)
+        this.quoteForm.markAsPristine();
+
+        // Show download modal
+        this.showDownloadModal.set(true);
+      },
+      error: (err) => {
+        this.isSaving.set(false);
+        console.error('Error generating quote:', err);
+        this.showToast('Error al generar la cotización. Intente de nuevo.', 'error');
+      }
+    });
+  }
+
+  closeDownloadModal(download: boolean): void {
+    if (download && this.savedPdfBlob) {
+      const url = window.URL.createObjectURL(this.savedPdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${this.savedDocumentNumber()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      this.showToast('PDF descargado exitosamente', 'success');
+    }
+
+    this.showDownloadModal.set(false);
+    this.savedPdfBlob = null;
+
+    // Navigate to dashboard after saving
+    this.router.navigate(['/dashboard']);
+  }
+
+  previewPdf(): void {
+    if (this.quoteForm.invalid) {
+      this.showToast('Por favor complete los campos obligatorios', 'error');
+      return;
+    }
+
+    const request = this.buildQuoteRequest();
+
+    this.apiService.previewQuote(request).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      },
+      error: (err) => {
+        console.error('Error previewing quote:', err);
+        this.showToast('Error al generar vista previa', 'error');
+      }
+    });
+  }
+
+  private buildQuoteRequest(): CreateQuoteRequest {
+    const formValue = this.quoteForm.value;
+    return {
+      documentNumber: formValue.documentNumber,
+      currency: formValue.currency,
+      clientName: formValue.clientName,
+      clientRuc: formValue.clientRuc || undefined,
+      clientAddress: formValue.clientAddress || undefined,
+
+      clientEmail: formValue.clientEmail || undefined,
+      clientReference: formValue.clientReference || undefined,
+      clientMobile: formValue.clientMobile || undefined,
+      atte: formValue.atte || undefined,
+      items: this.itemsArray.controls.map(control => ({
+        code: control.value.codigo || undefined,
+        description: control.value.description,
+        unitMeasure: control.value.unidadMedida || 'UND',
+        quantity: control.value.quantity || 1,
+        unitPrice: control.value.unitPrice || 0
+      })),
+      notes: formValue.notes || undefined
+    };
   }
 
   confirmReset(): void {
@@ -1479,12 +2030,11 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       status: 'draft',
       clientName: '',
       clientRuc: '',
-      clientPhone: '',
-      clientMovil: '',
+
+      clientMobile: '',
       clientReference: '',
       clientAddress: '',
       clientEmail: '',
-      vendedor: '',
       atte: '',
       notes: ''
     });

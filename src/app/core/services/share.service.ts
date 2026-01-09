@@ -1,4 +1,6 @@
 import { Injectable } from '@angular/core';
+import { ApiService, SendEmailRequest } from './api.service';
+import { Observable } from 'rxjs';
 
 export interface ShareOptions {
     phoneNumber?: string;
@@ -16,6 +18,8 @@ export interface ShareOptions {
 })
 export class ShareService {
 
+    constructor(private apiService: ApiService) { }
+
     shareViaWhatsApp(options: ShareOptions): void {
         const { phoneNumber, message, pdfUrl, clientName, documentType, documentNumber } = options;
 
@@ -23,7 +27,7 @@ export class ShareService {
         fullMessage += `Hola${clientName ? ` ${clientName}` : ''},\n\n`;
         fullMessage += `Le enviamos su ${documentType === 'factura' ? 'factura' : 'cotización'}`;
         fullMessage += documentNumber ? ` N° ${documentNumber}` : '';
-        fullMessage += `.\n\nt`;
+        fullMessage += `.\n\n`;
         fullMessage += message;
 
         if (pdfUrl) {
@@ -40,7 +44,7 @@ export class ShareService {
         window.open(whatsappUrl, '_blank');
     }
 
-    shareViaEmail(options: ShareOptions): void {
+    openMailClient(options: ShareOptions): void {
         const { email, subject, message, documentType, documentNumber, clientName } = options;
 
         const emailSubject = subject ||
@@ -56,12 +60,42 @@ export class ShareService {
         window.location.href = mailtoUrl;
     }
 
+    sendEmail(request: SendEmailRequest): Observable<{ success: boolean; message: string }> {
+        return this.apiService.sendQuoteEmail(request);
+    }
+
     async copyToClipboard(text: string): Promise<boolean> {
         try {
             await navigator.clipboard.writeText(text);
             return true;
         } catch (err) {
             console.error('Error copying to clipboard:', err);
+            return false;
+        }
+    }
+    async shareFile(blob: Blob, fileName: string, title: string, text: string): Promise<boolean> {
+        if (!navigator.share) {
+            console.warn('Web Share API not supported');
+            return false;
+        }
+
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const data = {
+            files: [file],
+            title: title,
+            text: text
+        };
+
+        if (navigator.canShare && navigator.canShare(data)) {
+            try {
+                await navigator.share(data);
+                return true;
+            } catch (err) {
+                console.error('Error sharing file:', err);
+                return false;
+            }
+        } else {
+            console.warn('Sharing files not supported');
             return false;
         }
     }

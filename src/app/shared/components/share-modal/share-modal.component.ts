@@ -740,12 +740,13 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     fullMessage += this.message();
     fullMessage += `\n\n_El documento PDF se encuentra adjunto._`;
 
-    // Try native share with blob first (works on iOS/mobile)
+    // Try native share with blob first (works on Android/iOS/Mobile)
     const blob = this.pdfBlob();
     if (blob && typeof navigator.share === 'function') {
       try {
         const fileName = `Cotizacion-${this.documentNumber() || 'documento'}.pdf`;
-        const file = new File([blob], fileName, { type: 'application/pdf' });
+        // Adding lastModified helps some Android share handlers
+        const file = new File([blob], fileName, { type: 'application/pdf', lastModified: new Date().getTime() });
 
         const shareData = {
           files: [file],
@@ -758,7 +759,9 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
           return;
         }
       } catch (e) {
-        console.warn('Native share failed, falling back to WhatsApp link', e);
+        console.warn('Native share failed or cancelled, falling back to WhatsApp link', e);
+        // If it was a user cancellation (AbortError), we probably shouldn't open the link, 
+        // but current logic falls through. We'll leave it to fall through to ensure delivery.
       }
     }
 

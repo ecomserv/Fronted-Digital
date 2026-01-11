@@ -729,6 +729,8 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   async shareWhatsApp() {
+    this.close();
+
     // Build the formatted message
     let fullMessage = `*ECOMSERV - Cotización*\n\n`;
     fullMessage += `Hola${this.clientName() ? ` ${this.clientName()}` : ''},\n\n`;
@@ -753,7 +755,6 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
 
         if (navigator.canShare && navigator.canShare(shareData)) {
           await navigator.share(shareData);
-          this.close();
           return;
         }
       } catch (e) {
@@ -771,7 +772,6 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     };
 
     this.shareService.shareViaWhatsApp(options);
-    this.close();
   }
 
   toggleEmailMode(): void {

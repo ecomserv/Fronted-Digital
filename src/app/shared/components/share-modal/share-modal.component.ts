@@ -110,11 +110,33 @@ import { ShareService, ShareOptions } from '../../../core/services/share.service
                     }
                   </div>
 
+                  <div class="form-field">
+                    <label for="email-cc-input">CC (Opcional)</label>
+                    <div class="input-wrapper" [class.focused]="emailCcFocused()" [class.error]="emailCc && !isValidCc()">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                      </svg>
+                      <input
+                        id="email-cc-input"
+                        type="email"
+                        [(ngModel)]="emailCc"
+                        placeholder="copia@ejemplo.com"
+                        [disabled]="isSending()"
+                        (focus)="emailCcFocused.set(true)"
+                        (blur)="emailCcFocused.set(false)"
+                        autocomplete="email">
+                    </div>
+                    @if (emailCc && !isValidCc()) {
+                      <span class="error-text">Ingrese un correo válido</span>
+                    }
+                  </div>
+
                   <button
                     type="button"
                     class="send-btn"
                     (click)="sendEmail()"
-                    [disabled]="isSending() || !isValidEmail()">
+                    [disabled]="isSending() || !isValidEmail() || !isValidCc()">
                     @if (isSending()) {
                       <span class="spinner"></span>
                       <span>Enviando...</span>
@@ -670,7 +692,9 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   emailMode = signal(false);
   emailSent = signal(false);
   emailFocused = signal(false);
+  emailCcFocused = signal(false);
   emailTo = '';
+  emailCc = '';
   isSending = signal(false);
 
   private previousActiveElement: HTMLElement | null = null;
@@ -688,6 +712,7 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
         this.emailSent.set(false);
         this.isSending.set(false);
         this.emailTo = this.clientEmail() || '';
+        this.emailCc = '';
         this.previousActiveElement = document.activeElement as HTMLElement;
 
         setTimeout(() => {
@@ -786,13 +811,20 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     return emailRegex.test(this.emailTo);
   }
 
+  isValidCc(): boolean {
+    if (!this.emailCc) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(this.emailCc);
+  }
+
   sendEmail(): void {
-    if (!this.isValidEmail() || this.isSending()) return;
+    if (!this.isValidEmail() || !this.isValidCc() || this.isSending()) return;
 
     this.isSending.set(true);
 
     const request = {
       toEmail: this.emailTo,
+      ccEmail: this.emailCc || undefined,
       documentNumber: this.documentNumber(),
       clientName: this.clientName(),
       attachPdf: true

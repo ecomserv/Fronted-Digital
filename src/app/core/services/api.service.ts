@@ -156,6 +156,7 @@ export interface QuoteSummary {
 
 export interface SendEmailRequest {
   toEmail: string;
+  ccEmail?: string;
   documentNumber: string;
   clientName?: string;
   attachPdf?: boolean;

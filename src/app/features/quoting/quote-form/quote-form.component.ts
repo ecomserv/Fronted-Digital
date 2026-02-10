@@ -1447,21 +1447,33 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     ]);
 
     // Subscribe to form changes to trigger preview updates
-    // Uses debounce + scroll preservation to make updates invisible
+    // On mobile: skip scroll restoration entirely (preview is destroyed from DOM when form is visible)
+    // This prevents the iOS WebKit "input focus scroll jump" flicker caused by
+    // window.scrollTo fighting with the browser's own scroll-to-focused-input behavior
     this.quoteForm.valueChanges.subscribe(() => this.formChangeSubject.next());
     this.formSubscription = this.formChangeSubject.pipe(
       debounceTime(300)
     ).subscribe(() => {
-      // Freeze scroll position before Angular re-renders the preview
-      const scrollY = window.scrollY;
-      const scrollX = window.scrollX;
-      this.formVersion.update(v => v + 1);
-      // Restore after Angular completes DOM updates (double rAF to wait for paint)
-      requestAnimationFrame(() => {
+      // On mobile, only update preview data when the preview is actually visible
+      if (this.isMobileView() && !this.showPreview()) {
+        return;
+      }
+
+      if (this.isMobileView()) {
+        // Mobile with preview visible: update data but NEVER touch scroll position
+        // iOS WebKit manages its own scroll for focused inputs; fighting it causes flicker
+        this.formVersion.update(v => v + 1);
+      } else {
+        // Desktop: preserve scroll position across preview re-render (preview is always visible)
+        const scrollY = window.scrollY;
+        const scrollX = window.scrollX;
+        this.formVersion.update(v => v + 1);
         requestAnimationFrame(() => {
-          window.scrollTo({ top: scrollY, left: scrollX, behavior: 'instant' as ScrollBehavior });
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, left: scrollX, behavior: 'instant' as ScrollBehavior });
+          });
         });
-      });
+      }
     });
 
     // Autocomplete: client search

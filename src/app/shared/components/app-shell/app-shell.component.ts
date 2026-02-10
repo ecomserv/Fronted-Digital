@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, HostListener, ElementRef } from '@angular/core';
+import { Component, inject, signal, computed, HostListener, ElementRef, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule, RouterOutlet, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
@@ -76,8 +76,8 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       <router-outlet />
     </main>
 
-    <!-- Bottom Tab Bar -->
-    <nav class="bottom-bar" role="navigation" aria-label="Navegación principal">
+    <!-- Bottom Tab Bar - hidden when virtual keyboard is open on mobile -->
+    <nav class="bottom-bar" [class.keyboard-open]="isKeyboardOpen()" role="navigation" aria-label="Navegación principal">
       <!-- Home - icon only -->
       <a routerLink="/dashboard" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="tab-item tab-icon-only">
         <div class="tab-icon-wrap">
@@ -523,6 +523,13 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
 
 
 
+    /* Hide bottom bar when virtual keyboard is open on mobile.
+       This frees 72px of screen real estate, reducing the need for iOS
+       to aggressively auto-scroll when focusing inputs. */
+    .bottom-bar.keyboard-open {
+      display: none;
+    }
+
     /* ======================== RESPONSIVE ======================== */
     @media (max-width: 768px) {
       .shell-header-inner {
@@ -574,7 +581,7 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
     }
   `]
 })
-export class AppShellComponent {
+export class AppShellComponent implements OnInit, OnDestroy {
   authService = inject(AuthService);
   themeService = inject(ThemeService);
   toolbarService = inject(ToolbarService);
@@ -584,6 +591,10 @@ export class AppShellComponent {
   showOverflow = signal(false);
   showNuevoDropdown = signal(false);
   currentUrl = signal('');
+
+  // Virtual keyboard detection via VisualViewport API
+  isKeyboardOpen = signal(false);
+  private viewportHandler: (() => void) | null = null;
 
   // Computed active states for tab highlighting
   isNuevoActive = computed(() => {
@@ -600,6 +611,42 @@ export class AppShellComponent {
     });
     // Set initial URL
     this.currentUrl.set(this.router.url);
+  }
+
+  ngOnInit(): void {
+    this.setupKeyboardDetection();
+  }
+
+  ngOnDestroy(): void {
+    if (this.viewportHandler && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.viewportHandler);
+    }
+  }
+
+  /**
+   * Detect virtual keyboard open/close using VisualViewport API.
+   * When the keyboard opens, the visual viewport height shrinks significantly
+   * compared to the window inner height. A threshold of 150px reliably
+   * detects the keyboard across iOS Safari, iOS Chrome, and Android Chrome.
+   */
+  private setupKeyboardDetection(): void {
+    if (!window.visualViewport) return;
+
+    this.viewportHandler = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      // Only detect on mobile-ish screens
+      if (window.innerWidth > 768) {
+        this.isKeyboardOpen.set(false);
+        return;
+      }
+      // If the visual viewport is significantly smaller than the window,
+      // the virtual keyboard is likely open
+      const heightDiff = window.innerHeight - vv.height;
+      this.isKeyboardOpen.set(heightDiff > 150);
+    };
+
+    window.visualViewport.addEventListener('resize', this.viewportHandler);
   }
 
   @HostListener('document:click', ['$event'])

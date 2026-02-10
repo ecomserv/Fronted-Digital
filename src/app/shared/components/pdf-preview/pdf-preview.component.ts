@@ -1,8 +1,22 @@
-import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener } from '@angular/core';
+import { Component, input, output, signal, computed, OnInit, OnDestroy, ElementRef, ViewChild, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { DomSanitizer, SafeHtml, SafeResourceUrl } from '@angular/platform-browser';
 import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.service';
 
+/**
+ * PDF Preview Component — Iframe + Blob URL approach
+ *
+ * Industry-standard pattern used by Canva, PandaDoc, Google Docs print preview:
+ * Instead of injecting HTML via [innerHTML] (which causes parent DOM reflows,
+ * scroll position jumps, and iOS WebKit flicker), we render the preview inside
+ * an <iframe> with a Blob URL. This provides:
+ *
+ * 1. **Complete DOM isolation**: iframe content CANNOT cause reflows in the parent
+ * 2. **No scroll interference**: iframe has its own scroll context
+ * 3. **No DomSanitizer bypass needed**: Blob URLs are safe resource URLs
+ * 4. **Better mobile performance**: no parent layout recalculation on content change
+ * 5. **Memory management**: old Blob URLs are revoked before creating new ones
+ */
 @Component({
   selector: 'app-pdf-preview',
   standalone: true,
@@ -23,11 +37,20 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       <div class="preview-body" #scrollContainer>
         @if (quoteData() || reportData()) {
           @if (isMobile()) {
-            <!-- MOBILE: Thumbnail View -->
+            <!-- MOBILE: Thumbnail via iframe (isolated from parent DOM) -->
             <div class="mobile-view">
-              <!-- Mini PDF Thumbnail -->
               <div class="pdf-thumbnail" (click)="openFullscreen()">
-                <div class="thumbnail-content" [innerHTML]="sanitizedHtml()"></div>
+                @if (thumbnailBlobUrl()) {
+                  <iframe
+                    class="thumbnail-iframe"
+                    [src]="thumbnailBlobUrl()"
+                    sandbox="allow-same-origin"
+                    scrolling="no"
+                    frameborder="0"
+                    tabindex="-1"
+                    title="Vista previa miniatura del documento">
+                  </iframe>
+                }
                 <div class="thumbnail-overlay">
                   <div class="overlay-icon">
                     <i class="pi pi-search-plus"></i>
@@ -49,9 +72,19 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
               </div>
             </div>
           } @else {
-            <!-- DESKTOP: Full PDF Preview -->
+            <!-- DESKTOP: Full preview via iframe (isolated from parent DOM) -->
             <div class="doc-wrapper" [style.transform]="'scale(' + docScale() + ')'">
-              <div class="doc-paper" [innerHTML]="sanitizedHtml()"></div>
+              @if (previewBlobUrl()) {
+                <iframe
+                  class="doc-iframe"
+                  [src]="previewBlobUrl()"
+                  sandbox="allow-same-origin"
+                  scrolling="no"
+                  frameborder="0"
+                  tabindex="-1"
+                  title="Vista previa del documento">
+                </iframe>
+              }
             </div>
           }
         } @else {
@@ -86,7 +119,16 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
         </div>
         <div class="modal-body" (click)="$event.stopPropagation()">
           <div class="modal-doc" [style.transform]="'scale(' + modalScale() + ')'">
-            <div class="doc-paper" [innerHTML]="sanitizedHtml()"></div>
+            @if (fullscreenBlobUrl()) {
+              <iframe
+                class="fullscreen-iframe"
+                [src]="fullscreenBlobUrl()"
+                sandbox="allow-same-origin"
+                scrolling="no"
+                frameborder="0"
+                title="Vista previa del documento en pantalla completa">
+              </iframe>
+            }
           </div>
         </div>
       </div>
@@ -140,14 +182,13 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
     .preview-body {
       flex: 1;
       overflow: auto;
-      -webkit-overflow-scrolling: touch;
       padding: 20px;
       display: flex;
       justify-content: center;
       align-items: flex-start;
     }
 
-    /* ===== DESKTOP: DOCUMENT ===== */
+    /* ===== DESKTOP: DOCUMENT via IFRAME ===== */
     .doc-wrapper {
       background: white;
       box-shadow: 0 4px 20px rgba(0,0,0,0.2);
@@ -157,10 +198,13 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       flex-shrink: 0;
     }
 
-    .doc-paper {
+    .doc-iframe {
       width: 794px;
-      min-height: 1123px;
+      height: 1123px;
+      border: none;
+      display: block;
       background: white;
+      pointer-events: none; /* Prevent interaction with preview content */
     }
 
     /* ===== MOBILE VIEW ===== */
@@ -172,7 +216,7 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       gap: 16px;
     }
 
-    /* PDF Thumbnail */
+    /* PDF Thumbnail via iframe */
     .pdf-thumbnail {
       position: relative;
       width: 100%;
@@ -194,12 +238,14 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       transform: scale(0.98);
     }
 
-    .thumbnail-content {
+    .thumbnail-iframe {
       width: 794px;
-      min-height: 1123px;
+      height: 1123px;
+      border: none;
       transform: scale(0.42);
       transform-origin: top left;
-      pointer-events: none;
+      pointer-events: none; /* Click passes through to the thumbnail container */
+      display: block;
     }
 
     .thumbnail-overlay {
@@ -360,7 +406,6 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
     .modal-body {
       flex: 1;
       overflow: auto;
-      -webkit-overflow-scrolling: touch;
       display: flex;
       justify-content: flex-start;
       align-items: flex-start;
@@ -374,6 +419,14 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       overflow: hidden;
       transform-origin: top left;
       flex-shrink: 0;
+    }
+
+    .fullscreen-iframe {
+      width: 794px;
+      height: 1123px;
+      border: none;
+      display: block;
+      background: white;
     }
 
     /* ===== EMPTY ===== */
@@ -412,7 +465,7 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
         height: 360px;
       }
 
-      .thumbnail-content {
+      .thumbnail-iframe {
         transform: scale(0.36);
       }
 
@@ -423,7 +476,7 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
     }
   `]
 })
-export class PdfPreviewComponent implements OnInit {
+export class PdfPreviewComponent implements OnInit, OnDestroy {
   quoteData = input<QuoteData | null>(null);
   reportData = input<ReportData | null>(null);
   onDownload = output<void>();
@@ -439,6 +492,14 @@ export class PdfPreviewComponent implements OnInit {
   modalScale = signal(0.9);
   translateX = signal(0);
   translateY = signal(0);
+
+  // Blob URL signals for iframe rendering
+  previewBlobUrl = signal<SafeResourceUrl | null>(null);
+  thumbnailBlobUrl = signal<SafeResourceUrl | null>(null);
+  fullscreenBlobUrl = signal<SafeResourceUrl | null>(null);
+
+  // Track raw blob URLs for cleanup (revokeObjectURL)
+  private currentBlobUrl: string | null = null;
 
   // Touch gesture state
   private lastTouchDistance = 0;
@@ -458,14 +519,18 @@ export class PdfPreviewComponent implements OnInit {
 
   zoomPercent = computed(() => Math.round(this.modalScale() * 100));
 
-  sanitizedHtml = computed<SafeHtml>(() => {
+  /**
+   * Generate raw HTML string from quote/report data.
+   * This replaces the old sanitizedHtml computed that used bypassSecurityTrustHtml.
+   */
+  private rawHtml = computed<string>(() => {
     const quote = this.quoteData();
     const report = this.reportData();
     if (report) {
-      return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generateReportPdfHtml(report));
+      return this.pdfService.generateReportPdfHtml(report);
     }
     if (quote) {
-      return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generatePdfHtml(quote));
+      return this.pdfService.generatePdfHtml(quote);
     }
     return '';
   });
@@ -474,9 +539,17 @@ export class PdfPreviewComponent implements OnInit {
     private pdfService: PdfService,
     private sanitizer: DomSanitizer
   ) {
+    // React to data changes and update the Blob URL
     effect(() => {
-      if (this.quoteData() || this.reportData()) {
+      const html = this.rawHtml();
+      if (html) {
+        this.updateBlobUrl(html);
         setTimeout(() => this.measure(), 100);
+      } else {
+        this.revokeBlobUrl();
+        this.previewBlobUrl.set(null);
+        this.thumbnailBlobUrl.set(null);
+        this.fullscreenBlobUrl.set(null);
       }
     });
   }
@@ -486,15 +559,63 @@ export class PdfPreviewComponent implements OnInit {
     setTimeout(() => this.measure(), 50);
   }
 
+  ngOnDestroy(): void {
+    this.revokeBlobUrl();
+  }
+
   @HostListener('window:resize')
   onResize() {
     this.checkMobile();
     this.measure();
   }
 
+  /**
+   * Creates a Blob URL from the HTML string and updates all iframe sources.
+   * Revokes the previous URL to prevent memory leaks.
+   *
+   * The HTML is wrapped in a minimal document with <base> styles that:
+   * - Reset margins/padding for clean rendering
+   * - Set overflow:hidden to prevent scrollbars inside the iframe
+   * - Match the expected 794x1123 document dimensions
+   */
+  private updateBlobUrl(html: string): void {
+    // Revoke previous blob URL to free memory
+    this.revokeBlobUrl();
+
+    // Wrap content in a complete HTML document for the iframe
+    const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=794">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 794px; min-height: 1123px; overflow: hidden; background: white; }
+  </style>
+</head>
+<body>${html}</body>
+</html>`;
+
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    this.currentBlobUrl = url;
+
+    // Trust the blob URL for iframe src binding
+    const safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(url);
+    this.previewBlobUrl.set(safeUrl);
+    this.thumbnailBlobUrl.set(safeUrl);
+    this.fullscreenBlobUrl.set(safeUrl);
+  }
+
+  private revokeBlobUrl(): void {
+    if (this.currentBlobUrl) {
+      URL.revokeObjectURL(this.currentBlobUrl);
+      this.currentBlobUrl = null;
+    }
+  }
+
   openFullscreen() {
     this.modalScale.set(0.9);
-    this.isFullscreenOpen.set(true);
     this.isFullscreenOpen.set(true);
     document.body.style.overflow = 'hidden';
   }

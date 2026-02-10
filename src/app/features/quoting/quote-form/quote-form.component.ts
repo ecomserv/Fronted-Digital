@@ -839,7 +839,7 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
     }
 
     /* ============================================
-       PREVIEW SECTION
+       PREVIEW SECTION — matches /informe layout
        ============================================ */
     .preview-section {
       background: var(--surface-card);
@@ -847,9 +847,9 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       border-radius: var(--radius-lg);
       overflow: hidden;
       position: sticky;
-      top: calc(56px + var(--spacing-xl));
-      max-height: calc(100vh - 56px - var(--spacing-xl) * 2);
-      box-shadow: var(--shadow-md);
+      top: 80px;
+      max-height: calc(100vh - 100px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       /* Isolate preview reflows so they never affect outside layout/scroll */
       contain: layout style;
       overflow-anchor: none;
@@ -1021,14 +1021,9 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       border: 0;
     }
 
-    /* ============================================
-       PREVIEW SECTION
-       ============================================ */
+    /* Preview section height — use max-height, not forced height, for natural sizing */
     .preview-section {
-      height: calc(100vh - 56px - 60px);
       min-height: 400px;
-      position: sticky;
-      top: calc(56px + 20px);
     }
 
     /* ============================================

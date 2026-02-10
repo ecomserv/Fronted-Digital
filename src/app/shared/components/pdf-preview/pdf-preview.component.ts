@@ -196,6 +196,7 @@ import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.se
       overflow: hidden;
       transform-origin: top center;
       flex-shrink: 0;
+      margin: 0 auto;
     }
 
     .doc-iframe {
@@ -514,7 +515,7 @@ export class PdfPreviewComponent implements OnInit, OnDestroy {
     const padding = 40;
     const available = Math.max(container - padding, 300);
     const scale = available / docWidth;
-    return Math.min(Math.max(scale, 0.3), 1.0);
+    return Math.min(Math.max(scale, 0.3), 0.7);
   });
 
   zoomPercent = computed(() => Math.round(this.modalScale() * 100));

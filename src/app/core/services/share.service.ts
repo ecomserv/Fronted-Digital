@@ -9,7 +9,7 @@ export interface ShareOptions {
     message: string;
     pdfUrl?: string;
     clientName?: string;
-    documentType?: 'cotizacion' | 'factura';
+    documentType?: 'cotizacion' | 'factura' | 'informe';
     documentNumber?: string;
 }
 
@@ -25,7 +25,7 @@ export class ShareService {
 
         let fullMessage = `*ECOMSERV - Documento Comercial*\n\n`;
         fullMessage += `Hola${clientName ? ` ${clientName}` : ''},\n\n`;
-        fullMessage += `Le enviamos su ${documentType === 'factura' ? 'factura' : 'cotización'}`;
+        fullMessage += `Le enviamos su ${documentType === 'factura' ? 'factura' : documentType === 'informe' ? 'informe técnico' : 'cotización'}`;
         fullMessage += documentNumber ? ` N° ${documentNumber}` : '';
         fullMessage += `.\n\n`;
         fullMessage += message;
@@ -60,7 +60,15 @@ export class ShareService {
         window.location.href = mailtoUrl;
     }
 
-    sendEmail(request: SendEmailRequest): Observable<{ success: boolean; message: string }> {
+    sendEmail(request: SendEmailRequest & { documentType?: string }): Observable<{ success: boolean; message: string }> {
+        if (request.documentType === 'informe') {
+            return this.apiService.sendReportEmail({
+                toEmail: request.toEmail,
+                documentNumber: request.documentNumber,
+                empresa: request.clientName,
+                attachPdf: request.attachPdf
+            });
+        }
         return this.apiService.sendQuoteEmail(request);
     }
 

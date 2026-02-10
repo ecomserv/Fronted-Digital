@@ -1,71 +1,26 @@
-import { Component, signal, computed, OnInit, OnDestroy, HostListener, ViewEncapsulation, ChangeDetectionStrategy, NgZone } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy, HostListener, ViewEncapsulation, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, tap } from 'rxjs/operators';
 import { PdfService, QuoteData, DocumentItem } from '../../../core/services/pdf.service';
 import { AuthService } from '../../../core/services/auth.service';
-import { ApiService, CreateQuoteRequest } from '../../../core/services/api.service';
+import { ApiService, CreateQuoteRequest, ClientDTO, ProductDTO } from '../../../core/services/api.service';
 import { ShareModalComponent } from '../../../shared/components/share-modal/share-modal.component';
 import { PdfPreviewComponent } from '../../../shared/components/pdf-preview/pdf-preview.component';
-import { debounceTime } from 'rxjs/operators';
-import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
+import { ToolbarService } from '../../../core/services/toolbar.service';
 
 @Component({
   selector: 'app-quote-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink, ShareModalComponent, PdfPreviewComponent, EcomCurrencyPipe],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, ShareModalComponent, PdfPreviewComponent],
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Skip Link for Accessibility -->
     <a href="#main-form" class="skip-link">Saltar al formulario</a>
 
     <div class="quote-page">
-      <!-- Header -->
-      <header class="page-header">
-        <div class="header-content">
-          <a routerLink="/dashboard" class="brand" title="Ir al Dashboard">
-            <img src="/logo-ecomserv.png" alt="ECOMSERV Logo" class="brand-logo" />
-            <span class="brand-name">ECOMSERV</span>
-          </a>
-          <div class="header-actions">
-            <button
-              type="button"
-              class="header-btn"
-              (click)="downloadPdf()"
-              [disabled]="isSaving()"
-              aria-label="Guardar y descargar documento en PDF">
-              @if (isSaving()) {
-                <span class="spinner-btn"></span>
-                <span>Guardando...</span>
-              } @else {
-                <i class="pi pi-download" aria-hidden="true"></i>
-                <span class="btn-text">Guardar PDF</span>
-              }
-            </button>
-            <button
-              type="button"
-              class="header-btn"
-              [class.active]="showPreview()"
-              (click)="togglePreview()"
-              [attr.aria-pressed]="showPreview()"
-              aria-label="Alternar vista previa">
-              <i class="pi" [class.pi-eye]="!showPreview()" [class.pi-pencil]="showPreview()" aria-hidden="true"></i>
-              <span>{{ showPreview() ? 'Editar' : 'Vista Previa' }}</span>
-            </button>
-            <button
-              type="button"
-              class="header-btn logout-btn"
-              (click)="goBack()"
-              title="Volver al inicio"
-              aria-label="Volver al inicio">
-              <i class="pi pi-arrow-left" aria-hidden="true"></i>
-              <span class="btn-text">Volver</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
       <main class="main-content" id="main-form">
         <div class="content-grid" [class.preview-active]="showPreview()">
           <!-- Form Section -->
@@ -87,9 +42,9 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                       id="documentNumber"
                       class="form-input"
                       formControlName="documentNumber"
-                      placeholder="XXXXX"
+                      placeholder="CES-XXXXX"
                       aria-describedby="documentNumber-hint">
-                    <span id="documentNumber-hint" class="form-hint">Editable: Dejar en XXXXX para automático</span>
+                    <span id="documentNumber-hint" class="form-hint">Editable: Dejar en CES-XXXXX para automático</span>
                   </div>
                   <div class="form-group">
                     <label class="form-label" for="currency">
@@ -117,16 +72,33 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                     Razón Social / Nombre del Cliente
                     <span class="required" aria-label="campo obligatorio">*</span>
                   </label>
-                  <input
-                    id="clientName"
-                    class="form-input"
-                    [class.error]="isFieldInvalid('clientName')"
-                    formControlName="clientName"
-                    placeholder="Nombre del cliente o empresa"
-                    autocomplete="organization"
-                    aria-required="true"
-                    [attr.aria-invalid]="isFieldInvalid('clientName')"
-                    aria-describedby="clientName-error">
+                  <div class="autocomplete-wrapper">
+                    <input
+                      id="clientName"
+                      class="form-input"
+                      [class.error]="isFieldInvalid('clientName')"
+                      formControlName="clientName"
+                      placeholder="Nombre del cliente o empresa"
+                      autocomplete="off"
+                      aria-required="true"
+                      [attr.aria-invalid]="isFieldInvalid('clientName')"
+                      aria-describedby="clientName-error"
+                      (input)="onClientSearch($event)"
+                      (blur)="hideClientSuggestions()">
+                    @if (clientSuggestions().length > 0 && showClientSuggestions()) {
+                      <ul class="autocomplete-dropdown" role="listbox" aria-label="Sugerencias de clientes">
+                        @for (client of clientSuggestions(); track client.id) {
+                          <li class="autocomplete-item" role="option"
+                              (mousedown)="selectClient(client)">
+                            <span class="autocomplete-name">{{ client.name }}</span>
+                            @if (client.ruc) {
+                              <span class="autocomplete-detail">RUC: {{ client.ruc }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
                   @if (isFieldInvalid('clientName')) {
                     <span id="clientName-error" class="form-error" role="alert">
                       <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
@@ -241,7 +213,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                 </header>
 
                 <div class="items-list" formArrayName="items" role="list">
-                  @for (item of itemsArray.controls; track item; let i = $index) {
+                  @for (item of itemsArray.controls; track $index; let i = $index) {
                     <article class="item-card" [formGroupName]="i" role="listitem">
                       <header class="item-header">
                         <span class="item-number" aria-label="Item número {{ i + 1 }}">{{ i + 1 }}</span>
@@ -260,12 +232,27 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                       <div class="form-row">
                         <div class="form-group">
                           <label class="form-label" [for]="'codigo-' + i">Código</label>
-                          <input
-                            [id]="'codigo-' + i"
-                            class="form-input"
-                            formControlName="codigo"
-                            [name]="'codigo_' + i"
-                            placeholder="SKU-001">
+                          <div class="autocomplete-wrapper">
+                            <input
+                              [id]="'codigo-' + i"
+                              class="form-input"
+                              formControlName="codigo"
+                              placeholder="SKU-001"
+                              autocomplete="off"
+                              (input)="onProductSearch($event, i)"
+                              (blur)="hideProductSuggestions()">
+                            @if (activeProductIndex() === i && productSuggestions().length > 0 && showProductSuggestions()) {
+                              <ul class="autocomplete-dropdown" role="listbox" aria-label="Sugerencias de productos">
+                                @for (product of productSuggestions(); track product.id) {
+                                  <li class="autocomplete-item" role="option"
+                                      (mousedown)="selectProduct(product, i)">
+                                    <span class="autocomplete-name">{{ product.code }}</span>
+                                    <span class="autocomplete-detail">{{ product.description }}</span>
+                                  </li>
+                                }
+                              </ul>
+                            }
+                          </div>
                         </div>
                         <div class="form-group">
                           <label class="form-label" [for]="'unidadMedida-' + i">Unidad de Medida</label>
@@ -289,7 +276,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                           class="form-input form-textarea"
                           [class.error]="isItemFieldInvalid(i, 'description')"
                           formControlName="description"
-                          [name]="'description_' + i"
                           rows="3"
                           placeholder="Descripción detallada del producto o servicio"
                           aria-required="true"
@@ -309,11 +295,11 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                             [id]="'quantity-' + i"
                             class="form-input"
                             formControlName="quantity"
-                            [name]="'quantity_' + i"
                             type="number"
                             inputmode="decimal"
                             min="1"
-                            step="1">
+                            step="1"
+                            (input)="updateItemSubtotal(i)">
                         </div>
                         <div class="form-group">
                           <label class="form-label" [for]="'priceInput-' + i">
@@ -341,11 +327,11 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                             [id]="'priceInput-' + i"
                             class="form-input"
                             formControlName="priceInput"
-                            [name]="'priceInput_' + i"
                             type="number"
                             inputmode="decimal"
                             min="0"
-                            step="1">
+                            step="1"
+                            (input)="updateItemSubtotal(i)">
                           <!-- Hidden unitPrice control for internal calculation -->
                           <input type="hidden" formControlName="unitPrice">
                         </div>
@@ -354,7 +340,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                           <input
                             [id]="'subtotal-' + i"
                             class="form-input readonly subtotal-display"
-                            [value]="(item.get('quantity')?.value * item.get('priceInput')?.value) | ecomCurrency: currentCurrency()"
+                            [value]="formatCurrency(getItemSubtotal(i))"
                             readonly
                             aria-live="polite">
                         </div>
@@ -369,15 +355,15 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
                 <div class="totals-grid">
                   <div class="total-row">
                     <span class="total-label">Subtotal (sin IGV)</span>
-                    <span class="total-value" aria-live="polite">{{ totals().subtotal | ecomCurrency: currentCurrency() }}</span>
+                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().subtotal) }}</span>
                   </div>
                   <div class="total-row">
                     <span class="total-label">IGV (18%)</span>
-                    <span class="total-value" aria-live="polite">{{ totals().igv | ecomCurrency: currentCurrency() }}</span>
+                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().igv) }}</span>
                   </div>
                   <div class="total-row grand-total">
                     <span class="total-label">TOTAL A PAGAR</span>
-                    <span class="total-value" aria-live="polite">{{ totals().total | ecomCurrency: currentCurrency() }}</span>
+                    <span class="total-value" aria-live="polite">{{ formatCurrency(totals().total) }}</span>
                   </div>
                 </div>
               </article>
@@ -399,25 +385,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
               </article>
             </form>
 
-            <!-- Actions -->
-            <div class="form-actions">
-              <button
-                type="button"
-                class="btn btn-outline btn-lg"
-                (click)="confirmReset()"
-                aria-label="Limpiar todos los campos del formulario">
-                <i class="pi pi-refresh" aria-hidden="true"></i>
-                <span>Limpiar Todo</span>
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary btn-lg"
-                (click)="openShareModal()"
-                aria-label="Compartir cotización por WhatsApp o correo">
-                <i class="pi pi-share-alt" aria-hidden="true"></i>
-                <span>Compartir</span>
-              </button>
-            </div>
           </section>
 
           <!-- Preview Section -->
@@ -432,7 +399,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
           </section>
         </div>
       </main>
-    </div>
 
       <!-- Share Modal -->
       <app-share-modal
@@ -441,9 +407,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
         [clientName]="quoteForm.get('clientName')?.value"
         [clientPhone]="quoteForm.get('clientMobile')?.value"
         [clientEmail]="quoteForm.get('clientEmail')?.value"
-        [pdfBlob]="currentPdfBlob()"
         [documentType]="'cotizacion'"
-        (closed)="closeShareModal()"
+        (closed)="isShareModalOpen.set(false)"
       />
 
       <!-- Confirmation Dialog -->
@@ -497,14 +462,13 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
           {{ toastMessage() }}
         </div>
       }
+    </div>
   `,
   styles: [`
     /* ============================================
        VARIABLES LOCALES
        ============================================ */
     :host {
-      --header-height: 72px;
-      --footer-height: 100px;
       display: block;
     }
 
@@ -513,126 +477,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        ============================================ */
     .quote-page {
       min-height: 100vh;
-      min-height: 100dvh; /* Dynamic viewport height - accounts for mobile keyboard */
-      background: var(--ecom-gray-100);
-      /* Prevent overscroll on mobile */
-      overscroll-behavior: none;
-      /* Hardware acceleration to prevent blink on mobile inputs */
-      transform: translateZ(0);
-      will-change: transform;
-    }
-
-    @media (max-width: 768px) {
-      .quote-page {
-        height: auto !important;
-        min-height: 100%;
-        display: block;
-        padding-bottom: 300px; /* Buffer for keyboard */
-      }
-    }
-
-    /* ============================================
-       HEADER - Grande y accesible
-       ============================================ */
-    .page-header {
-      background: white;
-      border-bottom: 2px solid var(--ecom-gray-200);
-      height: var(--header-height);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .header-content {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 100%;
-      padding: 0 var(--spacing-lg);
-      max-width: 1600px;
-      margin: 0 auto;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-    }
-
-    .brand-logo {
-      height: 40px;
-      width: auto;
-    }
-
-    .brand-name {
-      font-size: var(--text-xl);
-      font-weight: 700;
-      color: var(--ecom-primary-800);
-    }
-
-    .header-actions {
-      display: flex;
-      gap: var(--spacing-md);
-    }
-
-    .header-btn {
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-sm);
-      min-height: var(--touch-target-min);
-      padding: var(--spacing-sm) var(--spacing-lg);
-      border: 2px solid var(--ecom-gray-300);
-      border-radius: var(--radius-md);
-      background: white;
-      color: var(--ecom-gray-800);
-      font-size: var(--text-base);
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .header-btn:hover {
-      background: var(--ecom-gray-100);
-      border-color: var(--ecom-gray-400);
-    }
-
-    .header-btn:focus-visible {
-      box-shadow: var(--focus-ring);
-    }
-
-    .header-btn.active {
-      background: var(--ecom-primary-800);
-      border-color: var(--ecom-primary-800);
-      color: white;
-    }
-
-    .logout-btn:hover {
-      background: var(--ecom-error-50);
-      border-color: var(--ecom-error-300);
-      color: var(--ecom-error-700);
-    }
-
-    .header-btn i {
-      font-size: 1.25rem;
-    }
-
-    .header-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
-
-    .spinner-btn {
-      width: 18px;
-      height: 18px;
-      border: 2px solid var(--ecom-gray-300);
-      border-top-color: var(--ecom-primary-600);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+      min-height: 100dvh;
+      background: var(--surface-bg);
     }
 
     /* ============================================
@@ -640,7 +486,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        ============================================ */
     .main-content {
       padding: var(--spacing-xl) var(--spacing-lg);
-      padding-bottom: calc(var(--footer-height) + var(--spacing-xl));
     }
 
     .content-grid {
@@ -655,8 +500,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        FORM CARDS - Espaciosos y claros
        ============================================ */
     .form-card {
-      background: white;
-      border: 2px solid var(--ecom-gray-200);
+      background: var(--surface-card);
+      border: 2px solid var(--border-default);
       border-radius: var(--radius-lg);
       padding: var(--spacing-xl);
       margin-bottom: var(--spacing-lg);
@@ -674,7 +519,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     .card-header h2 {
       font-size: var(--text-xl);
       font-weight: 700;
-      color: var(--ecom-gray-900);
+      color: var(--text-primary);
       margin: 0;
     }
 
@@ -705,7 +550,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       gap: var(--spacing-xs);
       font-size: var(--text-base);
       font-weight: 600;
-      color: var(--ecom-gray-800);
+      color: var(--text-primary);
     }
 
     .required {
@@ -720,15 +565,15 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       padding: var(--spacing-sm) var(--spacing-md);
       font-size: var(--text-base);
       font-family: inherit;
-      color: var(--ecom-gray-900);
-      background: white;
-      border: 2px solid var(--ecom-gray-300);
+      color: var(--text-primary);
+      background: var(--surface-input);
+      border: 2px solid var(--border-input);
       border-radius: var(--radius-md);
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .form-input::placeholder {
-      color: var(--ecom-gray-500);
+      color: var(--text-muted);
     }
 
     .form-input:hover {
@@ -796,7 +641,6 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       display: flex;
       flex-direction: column;
       gap: var(--spacing-lg);
-      overflow-anchor: none; /* Prevent scroll jumps */
     }
 
     .item-card {
@@ -820,7 +664,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       width: 40px;
       height: 40px;
       background: var(--ecom-primary-800);
-      color: white;
+      color: var(--text-inverted);
       border-radius: var(--radius-md);
       font-size: var(--text-lg);
       font-weight: 700;
@@ -832,7 +676,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       gap: var(--spacing-xs);
       min-height: var(--touch-target-min);
       padding: var(--spacing-sm) var(--spacing-md);
-      background: white;
+      background: var(--surface-card);
       border: 2px solid var(--ecom-error-300);
       border-radius: var(--radius-md);
       color: var(--ecom-error-700);
@@ -897,19 +741,19 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .total-label {
       font-size: var(--text-base);
-      color: var(--ecom-gray-700);
+      color: var(--text-secondary);
       font-weight: 500;
     }
 
     .total-value {
       font-size: var(--text-lg);
-      color: var(--ecom-gray-900);
+      color: var(--text-primary);
       font-weight: 600;
     }
 
     .total-row.grand-total {
       background: var(--ecom-primary-800);
-      color: white;
+      color: var(--text-inverted);
       margin: var(--spacing-md) calc(var(--spacing-xl) * -1) calc(var(--spacing-xl) * -1);
       padding: var(--spacing-lg) var(--spacing-xl);
       border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -918,13 +762,13 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .grand-total .total-label {
       font-size: var(--text-lg);
-      color: white;
+      color: var(--text-inverted);
       font-weight: 700;
     }
 
     .grand-total .total-value {
       font-size: var(--text-2xl);
-      color: white;
+      color: var(--text-inverted);
       font-weight: 700;
     }
 
@@ -962,7 +806,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .btn-primary {
       background: var(--ecom-primary-800);
-      color: white;
+      color: var(--text-inverted);
       border-color: var(--ecom-primary-800);
     }
 
@@ -972,19 +816,19 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     }
 
     .btn-outline {
-      background: white;
-      color: var(--ecom-gray-800);
-      border-color: var(--ecom-gray-300);
+      background: var(--surface-card);
+      color: var(--text-primary);
+      border-color: var(--border-default);
     }
 
     .btn-outline:hover {
-      background: var(--ecom-gray-100);
-      border-color: var(--ecom-gray-400);
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
     }
 
     .btn-danger {
       background: var(--ecom-error-600);
-      color: white;
+      color: var(--text-inverted);
       border-color: var(--ecom-error-600);
     }
 
@@ -994,31 +838,16 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     }
 
     /* ============================================
-       FORM ACTIONS - Fixed bottom en móvil
-       ============================================ */
-    .form-actions {
-      display: flex;
-      gap: var(--spacing-lg);
-      padding: var(--spacing-lg) 0;
-      margin-top: var(--spacing-lg);
-    }
-
-    .form-actions .btn {
-      flex: 1;
-    }
-
-    /* ============================================
        PREVIEW SECTION
        ============================================ */
     .preview-section {
-      background: white;
-      border: 2px solid var(--ecom-gray-200);
+      background: var(--surface-card);
+      border: 2px solid var(--border-default);
       border-radius: var(--radius-lg);
       overflow: hidden;
       position: sticky;
-      top: calc(var(--header-height) + var(--spacing-xl));
-      max-height: calc(100vh - var(--header-height) - var(--spacing-xl) * 2);
-      max-height: calc(100dvh - var(--header-height) - var(--spacing-xl) * 2);
+      top: calc(56px + var(--spacing-xl));
+      max-height: calc(100vh - 56px - var(--spacing-xl) * 2);
       box-shadow: var(--shadow-md);
     }
 
@@ -1026,7 +855,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        CONFIRMATION DIALOG
        ============================================ */
     .confirm-dialog {
-      background: white;
+      background: var(--surface-card);
       border-radius: var(--radius-xl);
       padding: var(--spacing-xl);
       max-width: 400px;
@@ -1036,13 +865,13 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .confirm-dialog h3 {
       font-size: var(--text-xl);
-      color: var(--ecom-gray-900);
+      color: var(--text-primary);
       margin-bottom: var(--spacing-md);
     }
 
     .confirm-dialog p {
       font-size: var(--text-base);
-      color: var(--ecom-gray-600);
+      color: var(--text-secondary);
       margin-bottom: var(--spacing-xl);
       line-height: 1.6;
     }
@@ -1061,14 +890,14 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        ============================================ */
     .toast {
       position: fixed;
-      bottom: calc(var(--footer-height) + var(--spacing-lg));
+      top: 80px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
       background: var(--ecom-gray-900);
-      color: white;
+      color: var(--text-inverted);
       padding: var(--spacing-md) var(--spacing-xl);
       border-radius: var(--radius-lg);
       font-size: var(--text-base);
@@ -1093,7 +922,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     @keyframes toastSlideUp {
       from {
         opacity: 0;
-        transform: translateX(-50%) translateY(20px);
+        transform: translateX(-50%) translateY(-20px);
       }
       to {
         opacity: 1;
@@ -1109,7 +938,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       top: -100%;
       left: var(--spacing-md);
       background: var(--ecom-primary-800);
-      color: white;
+      color: var(--text-inverted);
       padding: var(--spacing-md) var(--spacing-lg);
       border-radius: var(--radius-md);
       z-index: 9999;
@@ -1119,6 +948,61 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .skip-link:focus {
       top: var(--spacing-md);
+    }
+
+    /* ============================================
+       AUTOCOMPLETE DROPDOWN
+       ============================================ */
+    .autocomplete-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--surface-card);
+      border: 2px solid var(--border-default);
+      border-top: none;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 500;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      box-shadow: var(--shadow-md);
+    }
+
+    .autocomplete-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--spacing-sm) var(--spacing-md);
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s ease;
+    }
+
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+
+    .autocomplete-item:hover {
+      background: var(--surface-hover);
+    }
+
+    .autocomplete-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: var(--text-base);
+    }
+
+    .autocomplete-detail {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
     }
 
     .sr-only {
@@ -1137,11 +1021,10 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
        PREVIEW SECTION
        ============================================ */
     .preview-section {
-      height: calc(100vh - var(--header-height) - 60px);
-      height: calc(100dvh - var(--header-height) - 60px);
-      min-height: 500px;
+      height: calc(100vh - 56px - 60px);
+      min-height: 400px;
       position: sticky;
-      top: calc(var(--header-height) + 20px);
+      top: calc(56px + 20px);
     }
 
     /* ============================================
@@ -1177,9 +1060,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
         position: relative;
         top: 0;
         width: 100%;
-        height: calc(100vh - var(--header-height) - 40px);
-        height: calc(100dvh - var(--header-height) - 40px);
-        min-height: 500px;
+        height: auto;
+        min-height: 0;
         border-radius: 0;
         border: none;
       }
@@ -1203,10 +1085,10 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .segmented-control {
       display: inline-flex;
-      background-color: #f3f4f6;
+      background-color: var(--surface-hover);
       padding: 3px;
       border-radius: 9999px;
-      border: 1px solid #e5e7eb;
+      border: 1px solid var(--border-default);
       box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
     }
 
@@ -1217,7 +1099,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       border-radius: 9999px;
       font-size: 0.75rem;
       font-weight: 600;
-      color: #6b7280;
+      color: var(--text-muted);
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       line-height: 1;
@@ -1226,63 +1108,23 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     }
 
     .segment-btn:hover {
-      color: #374151;
-      background-color: rgba(255, 255, 255, 0.5);
+      color: var(--text-secondary);
+      background-color: var(--surface-card);
     }
 
     .segment-btn.active {
-      background-color: #ffffff;
-      color: #0f172a;
-      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(229, 231, 235, 0.5);
+      background-color: var(--surface-card);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-card);
+      border: 1px solid var(--border-subtle);
     }
 
     /* ============================================
        RESPONSIVE - MOBILE
        ============================================ */
     @media (max-width: 768px) {
-      .header-content {
-        padding: 0 12px;
-        width: 100%;
-        box-sizing: border-box;
-        max-width: none;
-      }
-
-      .brand {
-        flex: 1;
-        min-width: 0;
-      }
-
-      .brand-logo {
-        height: 28px;
-      }
-
-      .brand-name {
-        font-size: var(--text-base);
-        display: none;
-      }
-
-      .header-actions {
-        gap: 6px;
-      }
-
-      .header-btn span {
-        display: none;
-      }
-
-      .header-btn {
-        padding: 8px;
-        min-width: 44px;
-        min-height: 44px;
-      }
-
-      .header-btn i {
-        font-size: 1.3rem;
-      }
-
       .main-content {
         padding: var(--spacing-md);
-        padding-bottom: calc(var(--footer-height) + var(--spacing-lg));
         width: 100%;
         box-sizing: border-box;
       }
@@ -1332,22 +1174,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
         justify-content: center;
       }
 
-      .form-actions {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        padding: var(--spacing-md);
-        border-top: 2px solid var(--ecom-gray-200);
-        z-index: 40;
-        margin: 0;
-        gap: var(--spacing-md);
-        box-shadow: 0 -4px 12px rgba(0,0,0,0.1);
-      }
-
       .toast {
-        bottom: calc(var(--footer-height) + var(--spacing-md));
+        top: 72px;
         left: var(--spacing-md);
         right: var(--spacing-md);
         transform: none;
@@ -1356,7 +1184,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       @keyframes toastSlideUp {
         from {
           opacity: 0;
-          transform: translateY(20px);
+          transform: translateY(-20px);
         }
         to {
           opacity: 1;
@@ -1375,7 +1203,7 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.6);
+      background: var(--overlay-bg);
       backdrop-filter: blur(4px);
       display: flex;
       align-items: center;
@@ -1386,26 +1214,26 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
 
     .confirm-dialog,
     .download-modal {
-      background: white;
+      background: var(--surface-card);
       border-radius: 20px;
       padding: 32px;
       max-width: 420px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      box-shadow: var(--shadow-card);
     }
 
     .confirm-dialog h3,
     .download-modal h3 {
       font-size: 20px;
       font-weight: 700;
-      color: #0f172a;
+      color: var(--text-primary);
       margin: 0 0 12px;
     }
 
     .confirm-dialog p,
     .download-modal p {
-      color: #64748b;
+      color: var(--text-secondary);
       font-size: 15px;
       margin: 0 0 8px;
     }
@@ -1443,12 +1271,12 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       align-items: center;
       justify-content: center;
       margin: 0 auto 20px;
-      color: white;
+      color: var(--text-inverted);
     }
 
     .download-question {
       font-weight: 600;
-      color: #0f172a !important;
+      color: var(--text-primary) !important;
       margin-top: 16px !important;
     }
 
@@ -1478,15 +1306,12 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
       }
       
       .preview-section {
-        min-height: calc(100vh - 150px);
-        min-height: calc(100dvh - 150px);
+        min-height: auto;
       }
     }
 
     /* Print styles */
     @media print {
-      .page-header,
-      .form-actions,
       .preview-section {
         display: none !important;
       }
@@ -1504,8 +1329,8 @@ import { EcomCurrencyPipe } from '../../../shared/pipes/ecom-currency.pipe';
   `]
 })
 export class QuoteFormComponent implements OnInit, OnDestroy {
+  private toolbarService = inject(ToolbarService);
   quoteForm: FormGroup;
-  currentCurrency = signal('PEN');
 
   // Controls visibility on mobile (false = form, true = preview)
   showPreview = signal(false);
@@ -1533,13 +1358,22 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   isSaving = signal(false);
 
+  // Editing mode (set from query param)
+  editingDocNumber = signal('');
+
   // Download modal
   showDownloadModal = signal(false);
   savedDocumentNumber = signal('');
   private savedPdfBlob: Blob | null = null;
 
-  // PDF for sharing
-  currentPdfBlob = signal<Blob | null>(null);
+  // Autocomplete
+  clientSuggestions = signal<ClientDTO[]>([]);
+  showClientSuggestions = signal(false);
+  productSuggestions = signal<ProductDTO[]>([]);
+  showProductSuggestions = signal(false);
+  activeProductIndex = signal(-1);
+  private clientSearchSubject = new Subject<string>();
+  private productSearchSubject = new Subject<{ term: string; index: number }>();
 
   constructor(
     private fb: FormBuilder,
@@ -1547,8 +1381,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private apiService: ApiService,
     private route: ActivatedRoute,
-    private router: Router,
-    private ngZone: NgZone
+    private router: Router
   ) {
     const initialData = this.pdfService.createNewQuote();
 
@@ -1556,16 +1389,16 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       documentNumber: [initialData.documentNumber],
       currency: [initialData.currency],
       status: [initialData.status],
-      clientName: ['', { validators: [Validators.required], updateOn: 'blur' }],
-      clientRuc: ['', { updateOn: 'blur' }],
+      clientName: ['', Validators.required],
+      clientRuc: [''],
 
-      clientMobile: ['', { updateOn: 'blur' }],
-      clientReference: ['', { updateOn: 'blur' }],
-      clientAddress: ['', { updateOn: 'blur' }],
-      clientEmail: ['', { validators: [Validators.email], updateOn: 'blur' }],
-      atte: ['', { updateOn: 'blur' }],
+      clientMobile: [''],
+      clientReference: [''],
+      clientAddress: [''],
+      clientEmail: ['', Validators.email],
+      atte: [''],
       items: this.fb.array([]),
-      notes: ['', { updateOn: 'blur' }],
+      notes: [''],
       termsAndConditions: [initialData.termsAndConditions]
     });
 
@@ -1573,31 +1406,84 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Subscribe to form changes to trigger preview updates (immediate for updateOn: 'blur')
-    // 1. VISUAL UPDATES: Only trigger when visual data changes (currency or items structure)
-    // We use valueChanges only for specific controls that affect layout/totals display
-    this.quoteForm.get('currency')?.valueChanges.subscribe(val => {
-      this.currentCurrency.set(val || 'PEN');
+    // Register contextual toolbar actions in AppShell
+    this.toolbarService.setPageTitle(
+      this.editingDocNumber() ? 'Editar Cotización' : 'Nueva Cotización'
+    );
+    this.toolbarService.setActions([
+      {
+        id: 'save-pdf',
+        icon: 'pi-download',
+        label: 'Guardar PDF',
+        callback: () => this.downloadPdf(),
+        disabled: this.isSaving,
+        loading: this.isSaving,
+      },
+      {
+        id: 'toggle-preview',
+        icon: 'pi-eye',
+        label: 'Vista Previa',
+        callback: () => this.togglePreview(),
+        active: this.showPreview,
+      },
+      {
+        id: 'share',
+        icon: 'pi-share-alt',
+        label: 'Compartir',
+        callback: () => this.openShareModal(),
+      },
+      {
+        id: 'reset',
+        icon: 'pi-refresh',
+        label: 'Limpiar',
+        callback: () => this.confirmReset(),
+      },
+    ]);
+
+    // Subscribe to form changes to trigger preview updates
+    this.formSubscription = this.quoteForm.valueChanges.subscribe(() => {
       this.formVersion.update(v => v + 1);
     });
 
-    this.itemsArray.valueChanges.subscribe(() => {
-      this.formVersion.update(v => v + 1);
+    // Autocomplete: client search
+    this.clientSearchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(term => {
+        if (!term || term.length < 2) {
+          return of([]);
+        }
+        return this.apiService.searchClients(term).pipe(catchError(() => of([])));
+      })
+    ).subscribe(clients => {
+      this.clientSuggestions.set(clients);
+      this.showClientSuggestions.set(clients.length > 0);
     });
 
-    // 2. SILENT PERSISTENCE: Save everything on blur, but OUTSIDE Angular Zone
-    // This prevents change detection from running when we just want to save to localStorage
-    this.ngZone.runOutsideAngular(() => {
-      this.quoteForm.valueChanges.subscribe(() => {
-        // This runs without triggering Angular's tick()
-        this.saveData();
-      });
+    // Autocomplete: product search
+    this.productSearchSubject.pipe(
+      debounceTime(300),
+      distinctUntilChanged((a, b) => a.term === b.term && a.index === b.index),
+      switchMap(({ term, index }) => {
+        if (!term || term.length < 2) {
+          return of({ products: [] as ProductDTO[], index });
+        }
+        return this.apiService.searchProducts(term).pipe(
+          catchError(() => of([])),
+          switchMap(products => of({ products: products as ProductDTO[], index }))
+        );
+      })
+    ).subscribe(({ products, index }) => {
+      this.productSuggestions.set(products);
+      this.activeProductIndex.set(index);
+      this.showProductSuggestions.set(products.length > 0);
     });
 
     // Check for edit mode
     this.route.queryParams.subscribe(params => {
       if (params['edit']) {
         const docNumber = params['edit'];
+        this.editingDocNumber.set(docNumber);
         this.loadQuoteData(docNumber);
       } else {
         // New quote - start fresh with one empty item
@@ -1619,6 +1505,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.toolbarService.clear();
     if (this.formSubscription) {
       this.formSubscription.unsubscribe();
     }
@@ -1749,13 +1636,13 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   addItem(): void {
     const itemGroup = this.fb.group({
-      codigo: ['', { updateOn: 'blur' }],
+      codigo: [''],
       unidadMedida: ['UND'],
-      description: ['', { validators: [Validators.required], updateOn: 'blur' }],
-      quantity: [1, { validators: [Validators.required, Validators.min(1)], updateOn: 'blur' }],
-      unitPrice: [0, { validators: [Validators.required, Validators.min(0)] }],
+      description: ['', Validators.required],
+      quantity: [1, [Validators.required, Validators.min(1)]],
+      unitPrice: [0, [Validators.required, Validators.min(0)]],
       // New fields for IGV toggle logic
-      priceInput: [0, { validators: [Validators.required, Validators.min(0)], updateOn: 'blur' }],
+      priceInput: [0, [Validators.required, Validators.min(0)]],
       includesIgv: [false]
     });
 
@@ -1946,7 +1833,6 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     this.apiService.generateQuote(quoteData).subscribe({
       next: (blob) => {
         this.isSaving.set(false);
-        this.currentPdfBlob.set(blob);  // Save blob for native share
         this.showToast('Cotización guardada y lista para compartir', 'success');
         this.isShareModalOpen.set(true);
 
@@ -1960,12 +1846,6 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       }
     });
   }
-
-  closeShareModal(): void {
-    this.isShareModalOpen.set(false);
-    this.currentPdfBlob.set(null);
-  }
-
 
   downloadPdf(): void {
     // Mark all fields as touched to show validation
@@ -2129,5 +2009,59 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     this.toastTimeout = setTimeout(() => {
       this.toastMessage.set('');
     }, 3000);
+  }
+
+  // Autocomplete: client search handler
+  onClientSearch(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.clientSearchSubject.next(value);
+  }
+
+  selectClient(client: ClientDTO): void {
+    this.quoteForm.patchValue({
+      clientName: client.name,
+      clientRuc: client.ruc || '',
+      clientAddress: client.address || '',
+      clientMobile: client.phone || '',
+      clientEmail: client.email || '',
+      atte: client.contactPerson || ''
+    });
+    this.showClientSuggestions.set(false);
+    this.clientSuggestions.set([]);
+    this.showToast('Cliente seleccionado', 'success');
+  }
+
+  hideClientSuggestions(): void {
+    setTimeout(() => {
+      this.showClientSuggestions.set(false);
+    }, 200);
+  }
+
+  // Autocomplete: product search handler
+  onProductSearch(event: Event, index: number): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.productSearchSubject.next({ term: value, index });
+  }
+
+  selectProduct(product: ProductDTO, index: number): void {
+    const item = this.itemsArray.at(index);
+    if (item) {
+      item.patchValue({
+        codigo: product.code,
+        description: product.description,
+        unidadMedida: product.unitMeasure || 'UND',
+        priceInput: product.referencePrice || 0,
+        includesIgv: false
+      });
+    }
+    this.showProductSuggestions.set(false);
+    this.productSuggestions.set([]);
+    this.showToast('Producto seleccionado', 'success');
+  }
+
+  hideProductSuggestions(): void {
+    setTimeout(() => {
+      this.showProductSuggestions.set(false);
+    }, 200);
   }
 }

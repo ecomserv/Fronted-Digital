@@ -1,13 +1,12 @@
-import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, signal, computed, OnInit, ElementRef, ViewChild, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { PdfService, QuoteData } from '../../../core/services/pdf.service';
+import { PdfService, QuoteData, ReportData } from '../../../core/services/pdf.service';
 
 @Component({
   selector: 'app-pdf-preview',
   standalone: true,
   imports: [CommonModule],
-  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="preview-container">
       <!-- Header -->
@@ -22,7 +21,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
 
       <!-- Content -->
       <div class="preview-body" #scrollContainer>
-        @if (quoteData()) {
+        @if (quoteData() || reportData()) {
           @if (isMobile()) {
             <!-- MOBILE: Thumbnail View -->
             <div class="mobile-view">
@@ -68,7 +67,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     @if (isFullscreenOpen()) {
       <div class="fullscreen-modal" (click)="closeFullscreen()">
         <div class="modal-header">
-          <span class="modal-title">{{ quoteData()?.documentNumber || 'Cotización' }}</span>
+          <span class="modal-title">{{ quoteData()?.documentNumber || reportData()?.documentNumber || 'Documento' }}</span>
           <div class="modal-controls">
             <button class="control-btn" (click)="zoomOut($event)" title="Alejar">
               <i class="pi pi-minus"></i>
@@ -98,8 +97,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
       display: flex;
       flex-direction: column;
       height: 100%;
-      min-height: 400px;
-      background: #475569;
+      background: var(--text-muted);
       border-radius: 12px;
       overflow: hidden;
     }
@@ -110,8 +108,8 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
       justify-content: space-between;
       align-items: center;
       padding: 12px 16px;
-      background: white;
-      border-bottom: 1px solid #e2e8f0;
+      background: var(--surface-card);
+      border-bottom: 1px solid var(--border-default);
       flex-shrink: 0;
     }
 
@@ -124,8 +122,8 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     .icon-wrapper {
       width: 32px;
       height: 32px;
-      background: #eff6ff;
-      color: #3b82f6;
+      background: var(--accent-blue-subtle);
+      color: var(--accent-blue);
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -135,7 +133,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     .header-title {
       font-weight: 600;
       font-size: 15px;
-      color: #1e293b;
+      color: var(--text-primary);
     }
 
     /* ===== BODY ===== */
@@ -262,7 +260,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     }
 
     .action-btn.primary {
-      background: linear-gradient(135deg, #1e40af, #3b82f6);
+      background: linear-gradient(135deg, var(--ecom-blue-800, #1e40af), var(--ecom-blue-500, #3b82f6));
       color: white;
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
     }
@@ -272,13 +270,13 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     }
 
     .action-btn.secondary {
-      background: white;
-      color: #1e293b;
-      border: 2px solid #e2e8f0;
+      background: var(--surface-card);
+      color: var(--text-primary);
+      border: 2px solid var(--border-default);
     }
 
     .action-btn.secondary:active {
-      background: #f1f5f9;
+      background: var(--surface-hover);
     }
 
     /* ===== FULLSCREEN MODAL ===== */
@@ -385,7 +383,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
       align-items: center;
       justify-content: center;
       gap: 12px;
-      color: #94a3b8;
+      color: var(--text-muted);
       padding: 60px;
       text-align: center;
     }
@@ -396,7 +394,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
     @media (max-width: 1024px) {
       .preview-container {
         border-radius: 0;
-        background: #f1f5f9;
+        background: var(--surface-hover);
       }
 
       .preview-header {
@@ -427,6 +425,7 @@ import { PdfService, QuoteData } from '../../../core/services/pdf.service';
 })
 export class PdfPreviewComponent implements OnInit {
   quoteData = input<QuoteData | null>(null);
+  reportData = input<ReportData | null>(null);
   onDownload = output<void>();
   onShare = output<void>();
 
@@ -460,9 +459,15 @@ export class PdfPreviewComponent implements OnInit {
   zoomPercent = computed(() => Math.round(this.modalScale() * 100));
 
   sanitizedHtml = computed<SafeHtml>(() => {
-    const data = this.quoteData();
-    if (!data) return '';
-    return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generatePdfHtml(data));
+    const quote = this.quoteData();
+    const report = this.reportData();
+    if (report) {
+      return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generateReportPdfHtml(report));
+    }
+    if (quote) {
+      return this.sanitizer.bypassSecurityTrustHtml(this.pdfService.generatePdfHtml(quote));
+    }
+    return '';
   });
 
   constructor(
@@ -470,7 +475,7 @@ export class PdfPreviewComponent implements OnInit {
     private sanitizer: DomSanitizer
   ) {
     effect(() => {
-      if (this.quoteData()) {
+      if (this.quoteData() || this.reportData()) {
         setTimeout(() => this.measure(), 100);
       }
     });

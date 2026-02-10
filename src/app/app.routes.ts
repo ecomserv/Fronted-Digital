@@ -15,28 +15,55 @@ export const routes: Routes = [
         title: 'Iniciar Sesión - ECOMSERV'
     },
     {
-        path: 'dashboard',
+        path: '',
         loadComponent: () =>
-            import('./features/dashboard/dashboard.component')
-                .then(m => m.DashboardComponent),
+            import('./shared/components/app-shell/app-shell.component')
+                .then(m => m.AppShellComponent),
         canActivate: [authGuard],
-        title: 'Panel Principal - ECOMSERV'
-    },
-    {
-        path: 'cotizacion',
-        loadComponent: () =>
-            import('./features/quoting/quote-form/quote-form.component')
-                .then(m => m.QuoteFormComponent),
-        canActivate: [authGuard],
-        title: 'Nueva Cotización - ECOMSERV'
-    },
-    {
-        path: 'cotizaciones',
-        loadComponent: () =>
-            import('./features/quoting/quotes-list/quotes-list.component')
-                .then(m => m.QuotesListComponent),
-        canActivate: [authGuard],
-        title: 'Cotizaciones Guardadas - ECOMSERV'
+        children: [
+            {
+                path: 'dashboard',
+                loadComponent: () =>
+                    import('./features/dashboard/dashboard.component')
+                        .then(m => m.DashboardComponent),
+                title: 'Panel Principal - ECOMSERV'
+            },
+            {
+                path: 'cotizacion',
+                loadComponent: () =>
+                    import('./features/quoting/quote-form/quote-form.component')
+                        .then(m => m.QuoteFormComponent),
+                title: 'Nueva Cotización - ECOMSERV'
+            },
+            {
+                path: 'cotizaciones',
+                loadComponent: () =>
+                    import('./features/quoting/quotes-list/quotes-list.component')
+                        .then(m => m.QuotesListComponent),
+                title: 'Cotizaciones Guardadas - ECOMSERV'
+            },
+            {
+                path: 'informe',
+                loadComponent: () =>
+                    import('./features/reports/report-form/report-form.component')
+                        .then(m => m.ReportFormComponent),
+                title: 'Nuevo Informe - ECOMSERV'
+            },
+            {
+                path: 'informes',
+                loadComponent: () =>
+                    import('./features/reports/reports-list/reports-list.component')
+                        .then(m => m.ReportsListComponent),
+                title: 'Informes Guardados - ECOMSERV'
+            },
+            {
+                path: 'clientes',
+                loadComponent: () =>
+                    import('./features/clients/clients.component')
+                        .then(m => m.ClientsComponent),
+                title: 'Clientes - ECOMSERV'
+            }
+        ]
     },
     {
         path: '**',

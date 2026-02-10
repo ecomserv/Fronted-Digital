@@ -78,4 +78,18 @@ export class AuthService {
   isLoggedIn(): boolean {
     return this.isAuthenticated();
   }
+
+  updateName(newName: string, newUsername?: string): Observable<boolean> {
+    return this.apiService.updateProfile(newName, newUsername).pipe(
+      tap(response => {
+        localStorage.setItem('token', response.token);
+        const user = { username: response.username, name: response.name, role: response.role };
+        localStorage.setItem('user', JSON.stringify(user));
+        this.currentUser.set(user);
+      }),
+      tap(() => {}),
+      catchError(() => of(false)),
+      tap(() => {})
+    ) as Observable<any>;
+  }
 }

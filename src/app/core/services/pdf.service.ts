@@ -11,6 +11,26 @@ export interface DocumentItem {
   subtotal: number;
 }
 
+export interface ReportData {
+  documentNumber: string;
+  documentDate: Date;
+  tipoHardware: string;
+  tipoServicio: string;
+  marca: string;
+  modelo: string;
+  serialNumber: string;
+  realizadoPor: string;
+  empresa: string;
+  area: string;
+  sede: string;
+  numeroOrden: string;
+  problemaReportado: string;
+  pruebasRealizadas: string[];
+  conclusiones: string[];
+  recomendaciones: string[];
+  observaciones: string;
+}
+
 export interface QuoteData {
   companyName: string;
   companyRuc: string;
@@ -115,7 +135,7 @@ export class PdfService {
   }
 
   generateDocumentNumber(): string {
-    return 'XXXXX';
+    return 'CES-XXXXX';
   }
 
   createNewQuote(): QuoteData {
@@ -696,7 +716,6 @@ export class PdfService {
                    </td>
                    <td style="text-align: center; vertical-align: bottom; padding: 10px;">
                      <img src="/firma_digital.png" class="signature-img" alt="Firma">
-                     <div style="font-size: 10px; margin-top: 5px; font-weight: bold;">VENTAS</div>
                    </td>
                 </tr>
              </table>
@@ -710,6 +729,221 @@ export class PdfService {
           <!-- FOOTER -->
           <div class="footer">
             <img class="footer-brands" src="/footer-brands.png" alt="Marcas asociadas">
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  // ==================== REPORT (Informe Técnico) HTML ====================
+
+  createNewReport(): ReportData {
+    return {
+      documentNumber: 'IT-XXXXX',
+      documentDate: new Date(),
+      tipoHardware: '',
+      tipoServicio: '',
+      marca: '',
+      modelo: '',
+      serialNumber: '',
+      realizadoPor: '',
+      empresa: '',
+      area: '',
+      sede: '',
+      numeroOrden: '',
+      problemaReportado: '',
+      pruebasRealizadas: [''],
+      conclusiones: [''],
+      recomendaciones: [''],
+      observaciones: ''
+    };
+  }
+
+  generateReportPdfHtml(data: ReportData): string {
+    const formatDate = (date: Date) => {
+      const d = new Date(date);
+      return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
+    const pruebasHtml = (data.pruebasRealizadas || []).filter(p => p.trim()).map(p =>
+      `<li>${p}</li>`
+    ).join('');
+
+    const conclusionesHtml = (data.conclusiones || []).filter(c => c.trim()).map(c =>
+      `<li>${c}</li>`
+    ).join('');
+
+    const recomendacionesHtml = (data.recomendaciones || []).filter(r => r.trim()).map(r =>
+      `<li>${r}</li>`
+    ).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Informe Técnico ${data.documentNumber} - ECOMSERV</title>
+        <style>
+          @media print {
+            @page { margin: 3mm; size: A4; }
+            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          html, body {
+            font-family: Arial, Helvetica, sans-serif; font-size: 10px; color: #000;
+            line-height: 1.2; background: #fff; padding: 12px; margin: 0;
+          }
+          .page-container { width: 100%; max-width: 210mm; margin: 0 auto; }
+          .header-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
+          .header-table td { vertical-align: middle; padding: 0; }
+          .header-top-bar { background: #1e3a8a; height: 3px; width: 100%; margin-bottom: 4px; border-radius: 2px; }
+          .logo-cell { width: 170px; text-align: left; padding-right: 8px; }
+          .logo-img { width: 160px; height: auto; display: block; }
+          .center-cell { text-align: center; vertical-align: middle; }
+          .brands-cell { width: 260px; text-align: right; padding-left: 8px; }
+          .brands-header-img { width: 250px; height: auto; display: block; margin-left: auto; }
+          .company-subinfo { font-size: 8px; color: #333; margin-top: 1px; }
+          .date-section { text-align: right; font-size: 10px; margin-bottom: 4px; }
+          .report-title { text-align: center; font-size: 16px; font-weight: bold; text-decoration: underline; margin: 4px 0 3px; }
+          .report-number { text-align: center; font-size: 11px; font-weight: bold; color: #1e3a8a; background: #e8f0fe; padding: 2px 10px; display: inline-block; }
+          .title-center { text-align: center; margin-bottom: 6px; }
+          .section-header { font-size: 11px; font-weight: bold; margin: 5px 0 3px; }
+          .section-number { display: inline-block; width: 26px; font-weight: bold; }
+          .data-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; border: 1px solid #000; table-layout: fixed; }
+          .data-table td { border: 1px solid #000; padding: 2px 5px; font-size: 10px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; }
+          .data-label { font-weight: bold; font-size: 9px; color: #333; width: 18%; background: #f5f5f5; }
+          .data-value { font-weight: bold; font-size: 10px; width: 32%; }
+          .diag-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; border: 1px solid #000; table-layout: fixed; }
+          .diag-table td { border: 1px solid #000; padding: 2px 5px; font-size: 10px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; }
+          .diag-label { font-weight: bold; font-size: 9px; background: #f5f5f5; width: 30%; }
+          .diag-sublabel { font-weight: bold; font-size: 9px; background: #f5f5f5; }
+          .bullet-list { margin: 2px 0; padding-left: 16px; }
+          .bullet-list li { margin-bottom: 1px; font-size: 10px; line-height: 1.3; }
+          .results-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; border: 1px solid #000; table-layout: fixed; }
+          .results-table td { border: 1px solid #000; padding: 2px 5px; font-size: 10px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; }
+          .results-label { font-weight: bold; font-size: 9px; background: #f5f5f5; width: 15%; }
+          .results-sublabel { font-weight: bold; font-size: 9px; width: 20%; }
+          .obs-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; border: 1px solid #000; table-layout: fixed; }
+          .obs-table td { border: 1px solid #000; padding: 2px 5px; font-size: 10px; vertical-align: top; word-break: break-word; overflow-wrap: break-word; }
+          .obs-label { font-weight: bold; font-size: 9px; background: #f5f5f5; width: 15%; }
+          .obs-sublabel { font-weight: bold; font-size: 9px; width: 20%; }
+          .signature-section { margin-top: 10px; text-align: center; }
+          .signature-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+          .signature-table td { padding: 2px; text-align: center; vertical-align: bottom; }
+          .signature-name { font-weight: bold; font-size: 11px; margin-top: 2px; }
+          .signature-line { border-bottom: 1px solid #000; width: 180px; margin: 0 auto; height: 25px; }
+          .signature-role { font-size: 10px; font-weight: bold; margin-top: 2px; border-top: 1px solid #000; display: inline-block; padding-top: 2px; min-width: 140px; }
+          .signature-img { max-width: 120px; max-height: 45px; }
+        </style>
+      </head>
+      <body>
+        <div class="page-container">
+          <!-- HEADER -->
+          <div class="header-top-bar"></div>
+          <table class="header-table">
+            <tr>
+              <td class="logo-cell">
+                <img src="/logo-ecomserv.png" alt="ECOMSERV" class="logo-img" />
+                <div class="company-subinfo">
+                  <div>${this.defaultCompanyInfo.companyAddress}</div>
+                  <div>${this.defaultCompanyInfo.companyPhone} . ${this.defaultCompanyInfo.companyEmail}</div>
+                </div>
+              </td>
+              <td class="center-cell">
+              </td>
+              <td class="brands-cell">
+                <img src="/footer-brands.png" class="brands-header-img" alt="Marcas" />
+              </td>
+            </tr>
+          </table>
+          <div style="border-bottom: 1px solid #cbd5e1; margin: 3px 0 4px;"></div>
+
+          <div class="date-section"><strong>Fecha: </strong>${formatDate(data.documentDate)}</div>
+
+          <div class="report-title">INFORME TECNICO</div>
+          <div class="title-center"><span class="report-number">${data.documentNumber}</span></div>
+
+          <!-- I. DATOS GENERALES -->
+          <div class="section-header"><span class="section-number">I.</span> Datos Generales</div>
+          <table class="data-table">
+            <tr>
+              <td class="data-label">I.1. Tipo Hardware</td>
+              <td class="data-value">${data.tipoHardware || ''}</td>
+              <td class="data-label">I.7. EMPRESA</td>
+              <td class="data-value">${data.empresa || ''}</td>
+            </tr>
+            <tr>
+              <td class="data-label">I.2. Tipo de Servicio</td>
+              <td class="data-value">${data.tipoServicio || ''}</td>
+              <td class="data-label">I.8. Área</td>
+              <td class="data-value">${data.area || ''}</td>
+            </tr>
+            <tr>
+              <td class="data-label">I.3. Marca</td>
+              <td class="data-value">${data.marca || ''}</td>
+              <td class="data-label">I.9. Sede</td>
+              <td class="data-value">${data.sede || ''}</td>
+            </tr>
+            <tr>
+              <td class="data-label">I.4. Modelo</td>
+              <td class="data-value">${data.modelo || ''}</td>
+              <td class="data-label">I.10. N° de Orden</td>
+              <td class="data-value">${data.numeroOrden || ''}</td>
+            </tr>
+            <tr>
+              <td class="data-label">I.5. S/N</td>
+              <td class="data-value" colspan="3">${data.serialNumber || ''}</td>
+            </tr>
+            <tr>
+              <td class="data-label">I.6. Realizado por</td>
+              <td class="data-value" colspan="3">${data.realizadoPor || ''}</td>
+            </tr>
+          </table>
+
+          <!-- II. DIAGNOSTICO -->
+          <div class="section-header"><span class="section-number">II.</span> Diagnostico</div>
+          <table class="diag-table">
+            <tr>
+              <td class="diag-label">II.1. Problema Reportado</td>
+              <td class="data-value">${data.problemaReportado || ''}</td>
+            </tr>
+            <tr><td class="diag-sublabel" colspan="2">II.2. Pruebas Realizadas</td></tr>
+            <tr><td colspan="2"><ul class="bullet-list">${pruebasHtml || '<li></li>'}</ul></td></tr>
+          </table>
+
+          <!-- III. RESULTADOS -->
+          <div class="section-header"><span class="section-number">III.</span> Resultados</div>
+          <table class="results-table">
+            <tr><td class="results-label" rowspan="2">III.1.</td><td class="results-sublabel">Conclusiones</td></tr>
+            <tr><td><ul class="bullet-list">${conclusionesHtml || '<li></li>'}</ul></td></tr>
+            <tr><td class="results-label" rowspan="2">III.2.</td><td class="results-sublabel">Recomendaciones</td></tr>
+            <tr><td><ul class="bullet-list">${recomendacionesHtml || '<li></li>'}</ul></td></tr>
+          </table>
+
+          <!-- IV. OBSERVACIONES -->
+          <div class="section-header"><span class="section-number">IV.</span> Observaciones</div>
+          <table class="obs-table">
+            <tr><td class="obs-label">IV.1.</td><td class="obs-sublabel">Otros</td></tr>
+            <tr><td colspan="2" style="min-height: 40px; padding: 8px;">${data.observaciones || ''}</td></tr>
+          </table>
+
+          <!-- SIGNATURES -->
+          <div class="signature-section">
+            <table class="signature-table">
+              <tr>
+                <td style="width: 50%;">
+                  <div class="signature-name">EDWIN CASTILLO FERNANDEZ</div>
+                  <div class="signature-role">VoBo Técnico</div>
+                </td>
+                <td style="width: 50%; text-align: center;">
+                  <div style="text-align: center;">
+                    <img src="/firma_informe.png" class="signature-img" alt="Firma">
+                  </div>
+                  <div class="signature-role">VoBo Supervisor</div>
+                </td>
+              </tr>
+            </table>
           </div>
         </div>
       </body>

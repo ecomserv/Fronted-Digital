@@ -1,25 +1,22 @@
 import { Component, PLATFORM_ID, Inject, signal, AfterViewInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { isPlatformBrowser, CommonModule } from '@angular/common';
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, CommonModule],
+  imports: [RouterOutlet],
   template: `
     <router-outlet />
-    
+
     @if (showInstallPromotion()) {
       <div class="install-prompt-backdrop">
         <div class="install-prompt">
           <div class="prompt-content">
             <div class="app-icon">
-              <img src="logo-ecomserv.png" alt="App Icon" onerror="this.style.display='none'">
-              <div class="placeholder-icon" *ngIf="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
-              </div>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
             </div>
             <div class="prompt-text">
               <h3>Instalar Aplicación</h3>
@@ -37,11 +34,7 @@ import { isPlatformBrowser, CommonModule } from '@angular/common';
   styles: [`
     :host {
       display: block;
-      width: 100%;
-      height: 100%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
+      min-height: 100vh;
     }
 
     .install-prompt-backdrop {
@@ -66,7 +59,6 @@ import { isPlatformBrowser, CommonModule } from '@angular/common';
       width: 100%;
       max-width: 400px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05);
-      border: 1px solid rgba(255,255,255,0.5);
     }
 
     .prompt-content {
@@ -86,34 +78,10 @@ import { isPlatformBrowser, CommonModule } from '@angular/common';
       justify-content: center;
       color: white;
       flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
     }
 
-    .app-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 12px;
-    }
-    
-    .placeholder-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .prompt-text h3 {
-      margin: 0 0 2px 0;
-      font-size: 16px;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .prompt-text p {
-      margin: 0;
-      font-size: 13px;
-      color: #64748b;
-    }
+    .prompt-text h3 { margin: 0 0 2px 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+    .prompt-text p { margin: 0; font-size: 13px; color: #64748b; }
 
     .prompt-actions {
       display: grid;
@@ -131,30 +99,14 @@ import { isPlatformBrowser, CommonModule } from '@angular/common';
       transition: transform 0.1s;
     }
 
-    button:active {
-      transform: scale(0.97);
-    }
+    button:active { transform: scale(0.97); }
 
-    .btn-cancel {
-      background: transparent;
-      color: #64748b;
-    }
+    .btn-cancel { background: transparent; color: #64748b; }
+    .btn-cancel:hover { background: #f1f5f9; color: #475569; }
 
-    .btn-cancel:hover {
-      background: #f1f5f9;
-      color: #475569;
-    }
+    .btn-install { background: #000; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .btn-install:hover { background: #1e293b; }
 
-    .btn-install {
-      background: #000000;
-      color: white;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-
-    .btn-install:hover {
-      background: #1e293b;
-    }
-    
     @keyframes slideUp {
       from { transform: translateY(100%); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -171,38 +123,24 @@ export class App implements AfterViewInit {
   ngAfterViewInit(): void {
     if (isPlatformBrowser(this.platformId)) {
       window.addEventListener('beforeinstallprompt', (e) => {
-        // Prevent the mini-infobar from appearing on mobile
         e.preventDefault();
-        // Stash the event so it can be triggered later.
         this.deferredPrompt = e;
-        // Update UI notify the user they can install the PWA
         this.showInstallPromotion.set(true);
       });
-
       window.addEventListener('appinstalled', () => {
-        // Hide the app-provided install promotion
         this.showInstallPromotion.set(false);
-        // Clear the deferredPrompt so it can be garbage collected
         this.deferredPrompt = null;
       });
     }
   }
 
-  hidePrompt() {
-    this.showInstallPromotion.set(false);
-  }
+  hidePrompt() { this.showInstallPromotion.set(false); }
 
   async installPwa() {
     this.hidePrompt();
-    if (!this.deferredPrompt) {
-      return;
-    }
-    // Show the install prompt
+    if (!this.deferredPrompt) return;
     this.deferredPrompt.prompt();
-    // Wait for the user to respond to the prompt
-    const { outcome } = await this.deferredPrompt.userChoice;
-    console.log(`User response to the install prompt: ${outcome}`);
-    // We've used the prompt, and can't use it again, throw it away
+    await this.deferredPrompt.userChoice;
     this.deferredPrompt = null;
   }
 }

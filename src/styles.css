@@ -9,7 +9,7 @@ select {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
-  background-color: white;
+  background-color: transparent !important;
   border-style: solid;
   pointer-events: auto !important;
   -webkit-user-select: text !important;
@@ -44,20 +44,15 @@ button {
 
 /* ============================================
    iOS Zoom & Scroll Prevention
-   iOS auto-zooms inputs with font-size < 16px
-   and auto-scrolls to focused elements
    ============================================ */
 
-/* Prevent iOS auto-zoom on focus */
 @supports (-webkit-touch-callout: none) {
-
   input,
   textarea,
   select {
     font-size: 16px !important;
   }
 
-  /* Prevent scroll jumping when focusing inputs */
   input:focus,
   textarea:focus,
   select:focus {
@@ -65,26 +60,14 @@ button {
   }
 }
 
-/* Fallback for all mobile */
-/* Fallback for all mobile */
 @media screen and (max-width: 768px) {
-
-  /* 
-   * PLAN OMEGA: AGGRESSIVE SCROLL LOCK
-   * We lock the html/body to fixed positioning to completely
-   * detach them from the browser's viewport scroll mechanism.
-   * Scrolling is delegated to internal containers (app-root).
-   */
   html {
     position: fixed;
     width: 100vw;
-    /* Force viewport width */
     height: 100%;
     top: 0;
     left: 0;
-    /* Force left align */
     overflow: hidden;
-    /* No browser scroll */
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -92,17 +75,12 @@ button {
   body {
     position: fixed;
     width: 100vw;
-    /* Force viewport width */
     height: 100%;
     top: 0;
     left: 0;
-    /* Force left align */
     overflow: hidden;
-    /* No browser scroll */
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
-
-    /* Input Zoom Fix */
     font-size: 16px;
   }
 
@@ -110,23 +88,18 @@ button {
   textarea,
   select {
     font-size: 16px !important;
-    /* Prevent internal scroll margin on focus since we handle it manually */
     scroll-margin: 0 !important;
   }
 
-  /* Prevent rubber-band scrolling on main containers */
   main,
   .form-section,
   .main-content {
     overscroll-behavior: contain;
     overflow-anchor: none;
-    /* PLAN OMEGA V2: Prevent scroll anchoring */
   }
 
-  /* Fix for position: fixed elements when keyboard is open */
   .toast,
   .modal-overlay {
-    /* Use safe-area-inset for notched phones */
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
@@ -134,9 +107,12 @@ button {
 /* ============================================
    ECOMSERV Design System - ACCESIBLE
    Optimizado para usuarios 50+ y móviles
+   Dark Mode Ready (Material Design 3)
    ============================================ */
 
 :root {
+  color-scheme: light dark;
+
   /* Primary Colors - Corporate Blue */
   --ecom-primary-50: #f0f4ff;
   --ecom-primary-100: #e0e9ff;
@@ -148,6 +124,21 @@ button {
   --ecom-primary-700: #2d3bcb;
   --ecom-primary-800: #1e3a8a;
   --ecom-primary-900: #1a2f6d;
+
+  /* Blue aliases (used across components for brand color) */
+  --ecom-blue-50: #eff6ff;
+  --ecom-blue-100: #dbeafe;
+  --ecom-blue-200: #bfdbfe;
+  --ecom-blue-300: #93c5fd;
+  --ecom-blue-400: #60a5fa;
+  --ecom-blue-500: #3b82f6;
+  --ecom-blue-600: #2563eb;
+  --ecom-blue-700: #1d4ed8;
+  --ecom-blue-800: #1e40af;
+  --ecom-blue-900: #1e3a8a;
+
+  /* Purple */
+  --ecom-purple-500: #a855f7;
 
   /* Neutral Colors - High Contrast */
   --ecom-gray-50: #fafafa;
@@ -177,43 +168,93 @@ button {
   /* Error Colors */
   --ecom-error-50: #fef2f2;
   --ecom-error-100: #fee2e2;
+  --ecom-error-300: #fca5a5;
   --ecom-error-500: #ef4444;
   --ecom-error-600: #dc2626;
   --ecom-error-700: #b91c1c;
+
+  /* ========== SEMANTIC TOKENS (Light) ========== */
+  --surface-bg: #f0f4f8;
+  --surface-card: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-input: #edf2f7;
+  --surface-skeleton: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-inverted: #ffffff;
+  --text-on-primary: #ffffff;
+
+  --border-default: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-strong: #cbd5e1;
+  --border-input: #d1d5db;
+
+  --nav-bg: #ffffff;
+  --nav-border: #e2e8f0;
+
+  /* Accent colors - canonical names */
+  --accent-blue-bg: #eff6ff;
+  --accent-blue-fg: #3b82f6;
+  --accent-green-bg: #f0fdf4;
+  --accent-green-fg: #22c55e;
+  --accent-amber-bg: #fffbeb;
+  --accent-amber-fg: #f59e0b;
+  --accent-purple-bg: #faf5ff;
+  --accent-purple-fg: #a855f7;
+  --accent-red-bg: #fef2f2;
+  --accent-red-fg: #ef4444;
+
+  /* Accent shorthand aliases (used widely in components) */
+  --accent-blue-subtle: var(--accent-blue-bg);
+  --accent-blue: var(--accent-blue-fg);
+  --accent-green-subtle: var(--accent-green-bg);
+  --accent-green: var(--accent-green-fg);
+  --accent-amber-subtle: var(--accent-amber-bg);
+  --accent-amber: var(--accent-amber-fg);
+  --accent-purple-subtle: var(--accent-purple-bg);
+  --accent-purple: var(--accent-purple-fg);
+  --accent-red-subtle: var(--accent-red-bg);
+  --accent-red: var(--accent-red-fg);
+
+  /* KPI Trends */
+  --kpi-trend-up-bg: #dcfce7;
+  --kpi-trend-up-fg: #16a34a;
+  --kpi-trend-down-bg: #fee2e2;
+  --kpi-trend-down-fg: #dc2626;
+  --kpi-trend-up: var(--kpi-trend-up-fg);
+  --kpi-trend-down: var(--kpi-trend-down-fg);
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+
+  --overlay-bg: rgba(0, 0, 0, 0.6);
 
   /* Typography - ACCESIBLE */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-family-heading: 'Inter', var(--font-family);
 
   /* Font Sizes - MÍNIMO 16px */
-  --text-xs: 0.875rem;
-  /* 14px - solo para badges */
-  --text-sm: 1rem;
-  /* 16px - texto secundario */
-  --text-base: 1.125rem;
-  /* 18px - texto base */
-  --text-lg: 1.25rem;
-  /* 20px - labels importantes */
-  --text-xl: 1.5rem;
-  /* 24px - títulos de sección */
-  --text-2xl: 1.875rem;
-  /* 30px - títulos principales */
-  --text-3xl: 2.25rem;
-  /* 36px - títulos de página */
+  --text-xs: 0.875rem;    /* 14px - solo para badges */
+  --text-sm: 1rem;        /* 16px - texto secundario */
+  --text-base: 1.125rem;  /* 18px - texto base */
+  --text-lg: 1.25rem;     /* 20px - labels importantes */
+  --text-xl: 1.5rem;      /* 24px - títulos de sección */
+  --text-2xl: 1.875rem;   /* 30px - títulos principales */
+  --text-3xl: 2.25rem;    /* 36px - títulos de página */
 
   /* Spacing - Generoso */
-  --spacing-xs: 0.5rem;
-  /* 8px */
-  --spacing-sm: 0.75rem;
-  /* 12px */
-  --spacing-md: 1rem;
-  /* 16px */
-  --spacing-lg: 1.5rem;
-  /* 24px */
-  --spacing-xl: 2rem;
-  /* 32px */
-  --spacing-2xl: 3rem;
-  /* 48px */
+  --spacing-xs: 0.5rem;   /* 8px */
+  --spacing-sm: 0.75rem;  /* 12px */
+  --spacing-md: 1rem;     /* 16px */
+  --spacing-lg: 1.5rem;   /* 24px */
+  --spacing-xl: 2rem;     /* 32px */
+  --spacing-2xl: 3rem;    /* 48px */
 
   /* Touch Targets - MÍNIMO 48px */
   --touch-target-min: 48px;
@@ -226,15 +267,132 @@ button {
   --radius-xl: 1.25rem;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-
   /* Focus Ring - Muy visible */
   --focus-ring: 0 0 0 4px rgba(59, 130, 246, 0.5);
   --focus-ring-error: 0 0 0 4px rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================
+   DARK THEME - Navy Corporate
+   Surface: navy-tinted (#0d1117 family)
+   Desaturated accent colors (200 tones)
+   ============================================ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-bg: #0d1117;
+  --surface-card: #161b22;
+  --surface-elevated: #1c2333;
+  --surface-hover: #21262d;
+  --surface-input: #2d333b;
+  --surface-skeleton: linear-gradient(90deg, #161b22 25%, #21262d 50%, #161b22 75%);
+
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(201, 209, 217, 0.80);
+  --text-muted: rgba(139, 148, 158, 0.65);
+  --text-inverted: #0d1117;
+  --text-on-primary: #ffffff;
+
+  --border-default: rgba(125, 133, 150, 0.20);
+  --border-subtle: rgba(125, 133, 150, 0.10);
+  --border-strong: rgba(125, 133, 150, 0.30);
+  --border-input: rgba(125, 133, 150, 0.25);
+
+  --nav-bg: #010409;
+  --nav-border: rgba(125, 133, 150, 0.20);
+
+  --accent-blue-bg: rgba(56, 139, 253, 0.15);
+  --accent-blue-fg: #79c0ff;
+  --accent-green-bg: rgba(63, 185, 80, 0.15);
+  --accent-green-fg: #7ee787;
+  --accent-amber-bg: rgba(210, 153, 34, 0.15);
+  --accent-amber-fg: #e3b341;
+  --accent-purple-bg: rgba(163, 113, 247, 0.15);
+  --accent-purple-fg: #d2a8ff;
+  --accent-red-bg: rgba(248, 81, 73, 0.15);
+  --accent-red-fg: #ff7b72;
+
+  /* Shorthand aliases update automatically via var() references in :root */
+
+  --kpi-trend-up-bg: rgba(63, 185, 80, 0.15);
+  --kpi-trend-up-fg: #7ee787;
+  --kpi-trend-down-bg: rgba(248, 81, 73, 0.15);
+  --kpi-trend-down-fg: #ff7b72;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.35);
+  --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.45), 0 2px 4px -2px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 0 0 1px rgba(125, 133, 150, 0.10), 0 1px 3px rgb(0 0 0 / 0.25);
+
+  --overlay-bg: rgba(1, 4, 9, 0.75);
+
+  --focus-ring: 0 0 0 3px rgba(56, 139, 253, 0.4);
+  --focus-ring-error: 0 0 0 3px rgba(248, 81, 73, 0.3);
+
+  /* Override palette tokens for dark */
+  --ecom-primary-500: #79c0ff;
+  --ecom-primary-600: #58a6ff;
+  --ecom-primary-700: #388bfd;
+  --ecom-primary-800: #58a6ff;
+
+  --ecom-blue-500: #58a6ff;
+  --ecom-blue-600: #388bfd;
+  --ecom-blue-700: #1f6feb;
+
+  --ecom-purple-500: #d2a8ff;
+
+  --ecom-success-50: rgba(63, 185, 80, 0.10);
+  --ecom-success-100: rgba(63, 185, 80, 0.15);
+  --ecom-success-500: #7ee787;
+  --ecom-success-600: #7ee787;
+  --ecom-success-700: #56d364;
+
+  --ecom-warning-50: rgba(210, 153, 34, 0.10);
+  --ecom-warning-100: rgba(210, 153, 34, 0.15);
+  --ecom-warning-500: #e3b341;
+  --ecom-warning-600: #e3b341;
+
+  --ecom-error-50: rgba(248, 81, 73, 0.10);
+  --ecom-error-100: rgba(248, 81, 73, 0.15);
+  --ecom-error-300: rgba(248, 81, 73, 0.40);
+  --ecom-error-500: #ff7b72;
+  --ecom-error-600: #ff7b72;
+  --ecom-error-700: #ff7b72;
+
+  --ecom-gray-50: #161b22;
+  --ecom-gray-100: #1c2333;
+  --ecom-gray-200: #21262d;
+  --ecom-gray-300: rgba(125, 133, 150, 0.20);
+  --ecom-gray-400: rgba(139, 148, 158, 0.50);
+  --ecom-gray-500: rgba(139, 148, 158, 0.65);
+  --ecom-gray-600: rgba(201, 209, 217, 0.60);
+  --ecom-gray-700: rgba(201, 209, 217, 0.70);
+  --ecom-gray-800: rgba(201, 209, 217, 0.85);
+  --ecom-gray-900: rgba(255, 255, 255, 0.92);
+}
+
+/* ============================================
+   Scrollbar - dark mode
+   ============================================ */
+
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: var(--surface-bg);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(125, 133, 150, 0.3);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(125, 133, 150, 0.5);
 }
 
 /* ============================================
@@ -247,53 +405,46 @@ button {
   box-sizing: border-box;
 }
 
+html,
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--surface-bg) !important;
+  border: none !important;
+  outline: none !important;
+}
+
 html {
   font-size: 16px;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  overscroll-behavior-y: none;
 }
 
 body {
-  margin: 0;
   font-family: var(--font-family);
-  background-color: var(--ecom-gray-50);
-  color: var(--ecom-gray-900);
+  color: var(--text-primary);
   font-size: var(--text-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Headings - Claros y grandes */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
+h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-family-heading);
   font-weight: 600;
   line-height: 1.3;
   margin: 0;
-  color: var(--ecom-gray-900);
+  color: var(--text-primary);
 }
 
-h1 {
-  font-size: var(--text-3xl);
-}
-
-h2 {
-  font-size: var(--text-2xl);
-}
-
-h3 {
-  font-size: var(--text-xl);
-}
-
-h4 {
-  font-size: var(--text-lg);
-}
+h1 { font-size: var(--text-3xl); }
+h2 { font-size: var(--text-2xl); }
+h3 { font-size: var(--text-xl); }
+h4 { font-size: var(--text-lg); }
 
 /* ============================================
    Focus States - MUY VISIBLES
@@ -323,10 +474,12 @@ h4 {
 
 /* Card Styles */
 .card {
-  background: white;
+  background: var(--surface-card);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-default);
   padding: var(--spacing-xl);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* ============================================
@@ -386,14 +539,14 @@ h4 {
 }
 
 .btn-outline {
-  background: white;
-  border-color: var(--ecom-gray-300);
-  color: var(--ecom-gray-800);
+  background: var(--surface-card);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .btn-outline:hover:not(:disabled) {
-  background: var(--ecom-gray-100);
-  border-color: var(--ecom-gray-400);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
 }
 
 .btn-danger {
@@ -434,7 +587,7 @@ h4 {
   gap: var(--spacing-xs);
   font-size: var(--text-base);
   font-weight: 600;
-  color: var(--ecom-gray-800);
+  color: var(--text-primary);
 }
 
 .form-label .required {
@@ -450,16 +603,16 @@ h4 {
   padding: var(--spacing-sm) var(--spacing-md);
   font-size: var(--text-base);
   font-family: inherit;
-  color: var(--ecom-gray-900);
-  background: white;
-  border: 2px solid var(--ecom-gray-300);
+  color: var(--text-primary);
+  background: var(--surface-input) !important;
+  border: 2px solid var(--border-input);
   border-radius: var(--radius-md);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
 }
 
 .form-input::placeholder,
 .form-textarea::placeholder {
-  color: var(--ecom-gray-500);
+  color: var(--text-muted);
 }
 
 .form-input:hover,
@@ -508,14 +661,14 @@ h4 {
 
 .form-hint {
   font-size: var(--text-sm);
-  color: var(--ecom-gray-600);
+  color: var(--text-secondary);
 }
 
 /* Readonly */
 .form-input[readonly],
 .form-input.readonly {
-  background: var(--ecom-gray-100);
-  color: var(--ecom-gray-700);
+  background: var(--surface-hover);
+  color: var(--text-secondary);
   cursor: default;
 }
 
@@ -561,7 +714,7 @@ h4 {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -570,7 +723,8 @@ h4 {
 }
 
 .modal-content {
-  background: white;
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-xl);
   padding: var(--spacing-xl);
   max-width: 480px;
@@ -586,7 +740,6 @@ h4 {
     opacity: 0;
     transform: translateY(-20px) scale(0.95);
   }
-
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -599,7 +752,7 @@ h4 {
 
 .toast {
   position: fixed;
-  bottom: var(--spacing-xl);
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
   background: var(--ecom-gray-900);
@@ -624,9 +777,8 @@ h4 {
 @keyframes toastSlideUp {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(20px);
+    transform: translateX(-50%) translateY(-20px);
   }
-
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
@@ -681,7 +833,6 @@ h4 {
 
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -726,7 +877,8 @@ h4 {
 
 @media print {
   body {
-    background: white;
+    background: white !important;
+    color: black !important;
     font-size: 12pt;
   }
 

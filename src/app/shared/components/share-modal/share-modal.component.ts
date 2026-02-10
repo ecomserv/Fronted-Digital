@@ -111,32 +111,29 @@ import { ShareService, ShareOptions } from '../../../core/services/share.service
                   </div>
 
                   <div class="form-field">
-                    <label for="email-cc-input">CC (Opcional)</label>
-                    <div class="input-wrapper" [class.focused]="emailCcFocused()" [class.error]="emailCc && !isValidCc()">
+                    <label for="cc-input">CC (opcional)</label>
+                    <div class="input-wrapper" [class.focused]="emailCcFocused()">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                         <polyline points="22,6 12,13 2,6"/>
                       </svg>
                       <input
-                        id="email-cc-input"
+                        id="cc-input"
                         type="email"
                         [(ngModel)]="emailCc"
-                        placeholder="copia@ejemplo.com"
+                        placeholder="copia@correo.com"
                         [disabled]="isSending()"
                         (focus)="emailCcFocused.set(true)"
                         (blur)="emailCcFocused.set(false)"
                         autocomplete="email">
                     </div>
-                    @if (emailCc && !isValidCc()) {
-                      <span class="error-text">Ingrese un correo válido</span>
-                    }
                   </div>
 
                   <button
                     type="button"
                     class="send-btn"
                     (click)="sendEmail()"
-                    [disabled]="isSending() || !isValidEmail() || !isValidCc()">
+                    [disabled]="isSending() || !isValidEmail()">
                     @if (isSending()) {
                       <span class="spinner"></span>
                       <span>Enviando...</span>
@@ -683,18 +680,17 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   clientPhone = input<string>('');
   clientEmail = input<string>('');
   pdfUrl = input<string>('');
-  pdfBlob = input<Blob | null>(null);
   message = input<string>('Adjunto documento PDF.');
-  documentType = input<'cotizacion' | 'factura'>('cotizacion');
+  documentType = input<'cotizacion' | 'factura' | 'informe'>('cotizacion');
 
   closed = output<void>();
 
   emailMode = signal(false);
   emailSent = signal(false);
   emailFocused = signal(false);
-  emailCcFocused = signal(false);
   emailTo = '';
   emailCc = '';
+  emailCcFocused = signal(false);
   isSending = signal(false);
 
   private previousActiveElement: HTMLElement | null = null;
@@ -712,7 +708,6 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
         this.emailSent.set(false);
         this.isSending.set(false);
         this.emailTo = this.clientEmail() || '';
-        this.emailCc = '';
         this.previousActiveElement = document.activeElement as HTMLElement;
 
         setTimeout(() => {
@@ -738,7 +733,8 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   documentInfo(): string {
-    const type = this.documentType() === 'factura' ? 'Factura' : 'Cotización';
+    const dt = this.documentType();
+    const type = dt === 'factura' ? 'Factura' : dt === 'informe' ? 'Informe Técnico' : 'Cotización';
     return this.documentNumber() ? `${type} N° ${this.documentNumber()}` : type;
   }
 
@@ -754,39 +750,21 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
   }
 
   async shareWhatsApp() {
-    this.close();
-
-    // Build the formatted message
-    let fullMessage = `*ECOMSERV - Cotización*\n\n`;
-    fullMessage += `Hola${this.clientName() ? ` ${this.clientName()}` : ''},\n\n`;
-    fullMessage += `Le enviamos su cotización`;
-    fullMessage += this.documentNumber() ? ` N° ${this.documentNumber()}` : '';
-    fullMessage += `.\n\n`;
-    fullMessage += this.message();
-    fullMessage += `\n\n_El documento PDF se encuentra adjunto._`;
-
-    // Try native share with blob first (works on Android/iOS/Mobile)
-    const blob = this.pdfBlob();
-    if (blob && typeof navigator.share === 'function') {
+    if (this.pdfUrl() && typeof navigator.share === 'function') {
       try {
-        const fileName = `Cotizacion-${this.documentNumber() || 'documento'}.pdf`;
-        // Adding lastModified helps some Android share handlers
-        const file = new File([blob], fileName, { type: 'application/pdf', lastModified: new Date().getTime() });
+        const response = await fetch(this.pdfUrl());
+        const blob = await response.blob();
+        const fileName = `${this.documentNumber() || 'documento'}.pdf`;
+        const title = `Cotización ${this.documentNumber()}`;
+        const text = this.message();
 
-        const shareData = {
-          files: [file],
-          title: `Cotización ${this.documentNumber()}`,
-          text: fullMessage
-        };
-
-        if (navigator.canShare && navigator.canShare(shareData)) {
-          await navigator.share(shareData);
+        const shared = await this.shareService.shareFile(blob, fileName, title, text);
+        if (shared) {
+          this.close();
           return;
         }
       } catch (e) {
-        console.warn('Native share failed or cancelled, falling back to WhatsApp link', e);
-        // If it was a user cancellation (AbortError), we probably shouldn't open the link, 
-        // but current logic falls through. We'll leave it to fall through to ensure delivery.
+        console.warn('Native share failed, falling back to WhatsApp link', e);
       }
     }
 
@@ -800,6 +778,7 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     };
 
     this.shareService.shareViaWhatsApp(options);
+    this.close();
   }
 
   toggleEmailMode(): void {
@@ -811,14 +790,8 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     return emailRegex.test(this.emailTo);
   }
 
-  isValidCc(): boolean {
-    if (!this.emailCc) return true;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(this.emailCc);
-  }
-
   sendEmail(): void {
-    if (!this.isValidEmail() || !this.isValidCc() || this.isSending()) return;
+    if (!this.isValidEmail() || this.isSending()) return;
 
     this.isSending.set(true);
 

@@ -1354,6 +1354,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   // Signal to trigger reactivity on form changes
   private formVersion = signal(0);
+  private formChangeSubject = new Subject<void>();
   private formSubscription: any;
 
   isSaving = signal(false);
@@ -1440,8 +1441,11 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       },
     ]);
 
-    // Subscribe to form changes to trigger preview updates
-    this.formSubscription = this.quoteForm.valueChanges.subscribe(() => {
+    // Subscribe to form changes to trigger preview updates (debounced to avoid scroll jitter on mobile)
+    this.quoteForm.valueChanges.subscribe(() => this.formChangeSubject.next());
+    this.formSubscription = this.formChangeSubject.pipe(
+      debounceTime(400)
+    ).subscribe(() => {
       this.formVersion.update(v => v + 1);
     });
 

@@ -1125,24 +1125,28 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       }
 
       .main-content {
-        padding: var(--spacing-md);
+        padding: 12px;
         width: 100%;
         box-sizing: border-box;
       }
 
       .form-card {
-        padding: var(--spacing-lg);
-        margin-bottom: var(--spacing-md);
+        padding: 16px;
+        margin-bottom: 12px;
+        border-width: 1px;
+        border-radius: 14px;
       }
 
       .card-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: var(--spacing-md);
+        gap: 10px;
+        margin-bottom: 14px;
+        padding-bottom: 10px;
       }
 
       .card-header h2 {
-        font-size: var(--text-lg);
+        font-size: 16px;
       }
 
       .card-header .btn {
@@ -1151,7 +1155,32 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
 
       .form-row {
         grid-template-columns: 1fr;
-        gap: var(--spacing-md);
+        gap: 10px;
+      }
+
+      .form-group {
+        gap: 3px;
+        margin-bottom: 4px;
+      }
+
+      .form-group.full-width {
+        margin-bottom: 8px;
+      }
+
+      .form-label {
+        font-size: 13px;
+      }
+
+      .form-input {
+        font-size: 14px;
+        padding: 10px 14px;
+        min-height: 44px;
+        border-width: 1px;
+        border-radius: 10px;
+      }
+
+      .form-hint {
+        font-size: 12px;
       }
 
 

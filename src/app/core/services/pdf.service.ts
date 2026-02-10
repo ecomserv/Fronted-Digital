@@ -80,6 +80,11 @@ export class PdfService {
 
   exchangeRate = 3.37; // Default fallback
 
+  // Base URL for resolving image paths in blob URL iframes
+  private get baseUrl(): string {
+    return typeof window !== 'undefined' ? window.location.origin : '';
+  }
+
   readonly defaultCompanyInfo = {
     companyName: 'ECOMSERV',
     companyRuc: '20602689809',
@@ -548,7 +553,7 @@ export class PdfService {
           <table class="header-table">
             <tr>
               <td class="logo-section" style="width: 250px;">
-                <img src="/logo-ecomserv.png" alt="ECOMSERV">
+                <img src="${this.baseUrl}/logo-ecomserv.png" alt="ECOMSERV">
               </td>
               <td class="company-info">
                  <div class="quote-title">COTIZACIÓN: <span class="quote-number">${data.documentNumber}</span></div>
@@ -715,7 +720,7 @@ export class PdfService {
                      </div>
                    </td>
                    <td style="text-align: center; vertical-align: bottom; padding: 10px;">
-                     <img src="/firma_digital.png" class="signature-img" alt="Firma">
+                     <img src="${this.baseUrl}/firma_digital.png" class="signature-img" alt="Firma">
                    </td>
                 </tr>
              </table>
@@ -728,7 +733,7 @@ export class PdfService {
 
           <!-- FOOTER -->
           <div class="footer">
-            <img class="footer-brands" src="/footer-brands.png" alt="Marcas asociadas">
+            <img class="footer-brands" src="${this.baseUrl}/footer-brands.png" alt="Marcas asociadas">
           </div>
         </div>
       </body>
@@ -844,7 +849,7 @@ export class PdfService {
           <table class="header-table">
             <tr>
               <td class="logo-cell">
-                <img src="/logo-ecomserv.png" alt="ECOMSERV" class="logo-img" />
+                <img src="${this.baseUrl}/logo-ecomserv.png" alt="ECOMSERV" class="logo-img" />
                 <div class="company-subinfo">
                   <div>${this.defaultCompanyInfo.companyAddress}</div>
                   <div>${this.defaultCompanyInfo.companyPhone} . ${this.defaultCompanyInfo.companyEmail}</div>
@@ -853,7 +858,7 @@ export class PdfService {
               <td class="center-cell">
               </td>
               <td class="brands-cell">
-                <img src="/footer-brands.png" class="brands-header-img" alt="Marcas" />
+                <img src="${this.baseUrl}/footer-brands.png" class="brands-header-img" alt="Marcas" />
               </td>
             </tr>
           </table>
@@ -938,7 +943,7 @@ export class PdfService {
                 </td>
                 <td style="width: 50%; text-align: center;">
                   <div style="text-align: center;">
-                    <img src="/firma_informe.png" class="signature-img" alt="Firma">
+                    <img src="${this.baseUrl}/firma_informe.png" class="signature-img" alt="Firma">
                   </div>
                   <div class="signature-role">VoBo Supervisor</div>
                 </td>

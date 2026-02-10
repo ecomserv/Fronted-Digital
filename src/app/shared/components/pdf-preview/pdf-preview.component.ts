@@ -583,8 +583,14 @@ export class PdfPreviewComponent implements OnInit, OnDestroy {
     // Revoke previous blob URL to free memory
     this.revokeBlobUrl();
 
-    // Wrap content in a complete HTML document for the iframe
-    const fullHtml = `<!DOCTYPE html>
+    // If the HTML is already a complete document, use it directly
+    // (generatePdfHtml and generateReportPdfHtml return full HTML documents)
+    // Only wrap in a document if the HTML is a fragment
+    let fullHtml: string;
+    if (html.trim().toLowerCase().startsWith('<!doctype') || html.trim().toLowerCase().startsWith('<html')) {
+      fullHtml = html;
+    } else {
+      fullHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -596,6 +602,7 @@ export class PdfPreviewComponent implements OnInit, OnDestroy {
 </head>
 <body>${html}</body>
 </html>`;
+    }
 
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);

@@ -2035,6 +2035,14 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     this.itemsArray.clear();
     this.addItem();
 
+    // Fetch next document number for new quote
+    this.apiService.getNextDocumentNumber().subscribe({
+      next: (res) => {
+        this.quoteForm.patchValue({ documentNumber: res.documentNumber });
+      },
+      error: (err) => console.error('Error fetching next document number', err)
+    });
+
     // Clear localStorage
     try {
       localStorage.removeItem('ecomserv_quote_draft');

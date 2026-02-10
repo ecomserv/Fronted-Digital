@@ -476,8 +476,7 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
        PAGE LAYOUT
        ============================================ */
     .quote-page {
-      min-height: 100vh;
-      min-height: 100dvh;
+      min-height: 100%;
       background: var(--surface-bg);
     }
 

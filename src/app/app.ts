@@ -34,7 +34,7 @@ import { isPlatformBrowser } from '@angular/common';
   styles: [`
     :host {
       display: block;
-      min-height: 100vh;
+      min-height: 100%;
     }
 
     .install-prompt-backdrop {

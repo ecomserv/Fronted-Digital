@@ -404,6 +404,7 @@ body {
   background: var(--surface-bg) !important;
   border: none !important;
   outline: none !important;
+  min-height: 100vh;
 }
 
 html {

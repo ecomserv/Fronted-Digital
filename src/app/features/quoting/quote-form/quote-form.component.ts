@@ -387,16 +387,17 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
 
           </section>
 
-          <!-- Preview Section -->
-          <section
-            class="preview-section"
-            [class.hidden-mobile]="!showPreview()"
-            aria-label="Vista previa del documento">
-            <app-pdf-preview 
-              [quoteData]="currentQuoteData()" 
-              (onDownload)="downloadPdf()"
-              (onShare)="openShareModal()" />
-          </section>
+          <!-- Preview Section: destroyed on mobile when hidden to avoid invisible DOM reflows -->
+          @if (!isMobileView() || showPreview()) {
+            <section
+              class="preview-section"
+              aria-label="Vista previa del documento">
+              <app-pdf-preview 
+                [quoteData]="currentQuoteData()" 
+                (onDownload)="downloadPdf()"
+                (onShare)="openShareModal()" />
+            </section>
+          }
         </div>
       </main>
 
@@ -478,6 +479,7 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
     .quote-page {
       min-height: 100%;
       background: var(--surface-bg);
+      overflow-anchor: none;
     }
 
     /* ============================================
@@ -848,6 +850,9 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       top: calc(56px + var(--spacing-xl));
       max-height: calc(100vh - 56px - var(--spacing-xl) * 2);
       box-shadow: var(--shadow-md);
+      /* Isolate preview reflows so they never affect outside layout/scroll */
+      contain: layout style;
+      overflow-anchor: none;
     }
 
     /* ============================================
@@ -1066,10 +1071,6 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
       }
 
       .form-section.hidden-mobile {
-        display: none;
-      }
-
-      .preview-section.hidden-mobile {
         display: none;
       }
     }
@@ -1297,10 +1298,6 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
         gap: var(--spacing-lg);
       }
 
-      .preview-section.hidden-mobile {
-        display: none !important;
-      }
-
       .form-section.hidden-mobile {
         display: none !important;
       }
@@ -1339,6 +1336,9 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
 
   // Controls visibility on mobile (false = form, true = preview)
   showPreview = signal(false);
+
+  // Detect mobile viewport to conditionally render/destroy preview component
+  isMobileView = signal(window.innerWidth <= 768);
 
   // Used for any desktop-specific conditional classes (currently just returns true for desktop layout)
   isDesktopPreviewVisible = computed(() => true);
@@ -1446,12 +1446,22 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       },
     ]);
 
-    // Subscribe to form changes to trigger preview updates (debounced to avoid scroll jitter on mobile)
+    // Subscribe to form changes to trigger preview updates
+    // Uses debounce + scroll preservation to make updates invisible
     this.quoteForm.valueChanges.subscribe(() => this.formChangeSubject.next());
     this.formSubscription = this.formChangeSubject.pipe(
-      debounceTime(400)
+      debounceTime(300)
     ).subscribe(() => {
+      // Freeze scroll position before Angular re-renders the preview
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
       this.formVersion.update(v => v + 1);
+      // Restore after Angular completes DOM updates (double rAF to wait for paint)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: scrollY, left: scrollX, behavior: 'instant' as ScrollBehavior });
+        });
+      });
     });
 
     // Autocomplete: client search
@@ -1521,6 +1531,11 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     if (this.toastTimeout) {
       clearTimeout(this.toastTimeout);
     }
+  }
+
+  @HostListener('window:resize')
+  onWindowResize() {
+    this.isMobileView.set(window.innerWidth <= 768);
   }
 
   // Keyboard shortcuts

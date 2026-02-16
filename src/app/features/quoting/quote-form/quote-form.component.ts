@@ -1699,10 +1699,10 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       codigo: ['', { updateOn: 'blur' }],
       unidadMedida: ['UND'],
       description: ['', { validators: [Validators.required], updateOn: 'blur' }],
-      quantity: [1, { validators: [Validators.required, Validators.min(1)], updateOn: 'blur' }],
+      quantity: [1, [Validators.required, Validators.min(1)]],
       unitPrice: [0, [Validators.required, Validators.min(0)]],
       // New fields for IGV toggle logic
-      priceInput: [0, { validators: [Validators.required, Validators.min(0)], updateOn: 'blur' }],
+      priceInput: [0, [Validators.required, Validators.min(0)]],
       includesIgv: [false]
     });
 

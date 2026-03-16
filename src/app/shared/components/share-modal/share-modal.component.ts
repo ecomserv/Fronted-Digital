@@ -73,7 +73,11 @@ import { ShareService, ShareOptions } from '../../../core/services/share.service
                   <line x1="12" y1="16" x2="12" y2="12"/>
                   <line x1="12" y1="8" x2="12.01" y2="8"/>
                 </svg>
-                <span>El PDF se adjuntará automáticamente</span>
+                @if (canShareFiles()) {
+                  <span>Se abrirá el menú de compartir — selecciona WhatsApp para adjuntar el PDF</span>
+                } @else {
+                  <span>Se enviará el enlace del documento por WhatsApp</span>
+                }
               </div>
             } @else {
               <!-- Email Form -->
@@ -732,6 +736,10 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
     }
   }
 
+  canShareFiles(): boolean {
+    return typeof navigator.share === 'function' && !!navigator.canShare;
+  }
+
   documentInfo(): string {
     const dt = this.documentType();
     const type = dt === 'factura' ? 'Factura' : dt === 'informe' ? 'Informe Técnico' : 'Cotización';
@@ -755,7 +763,9 @@ export class ShareModalComponent implements OnChanges, AfterViewInit {
         const response = await fetch(this.pdfUrl());
         const blob = await response.blob();
         const fileName = `${this.documentNumber() || 'documento'}.pdf`;
-        const title = `Cotización ${this.documentNumber()}`;
+        const dt = this.documentType();
+        const typeLabel = dt === 'informe' ? 'Informe Técnico' : dt === 'factura' ? 'Factura' : 'Cotización';
+        const title = `${typeLabel} ${this.documentNumber()}`;
         const text = this.message();
 
         const shared = await this.shareService.shareFile(blob, fileName, title, text);

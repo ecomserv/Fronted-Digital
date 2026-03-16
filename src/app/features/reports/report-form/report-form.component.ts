@@ -251,8 +251,9 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
         [isOpen]="isShareModalOpen()"
         [documentNumber]="reportForm.get('documentNumber')?.value || ''"
         [clientName]="reportForm.get('empresa')?.value || ''"
+        [pdfUrl]="sharePdfUrl()"
         [documentType]="'informe'"
-        (closed)="isShareModalOpen.set(false)" />
+        (closed)="closeShareModal()" />
     </div>
   `,
   styles: [`
@@ -385,6 +386,7 @@ export class ReportFormComponent implements OnInit, OnDestroy {
   isSaving = signal(false);
   isEditMode = signal(false);
   isShareModalOpen = signal(false);
+  sharePdfUrl = signal('');
   showDownloadModal = signal(false);
   savedDocNumber = signal('');
   savedBlob = signal<Blob | null>(null);
@@ -593,6 +595,15 @@ export class ReportFormComponent implements OnInit, OnDestroy {
     this.savedBlob.set(null);
   }
 
+  closeShareModal(): void {
+    this.isShareModalOpen.set(false);
+    const url = this.sharePdfUrl();
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.sharePdfUrl.set('');
+    }
+  }
+
   openShareModal() {
     // Auto-save before sharing
     if (this.isSaving()) return;
@@ -620,8 +631,13 @@ export class ReportFormComponent implements OnInit, OnDestroy {
     };
 
     this.apiService.generateReport(request).subscribe({
-      next: () => {
+      next: (blob) => {
         this.isSaving.set(false);
+
+        const prev = this.sharePdfUrl();
+        if (prev) URL.revokeObjectURL(prev);
+        this.sharePdfUrl.set(URL.createObjectURL(blob));
+
         this.isShareModalOpen.set(true);
       },
       error: (err) => {

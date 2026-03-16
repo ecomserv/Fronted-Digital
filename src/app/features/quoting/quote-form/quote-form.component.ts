@@ -408,8 +408,9 @@ import { ToolbarService } from '../../../core/services/toolbar.service';
         [clientName]="quoteForm.get('clientName')?.value"
         [clientPhone]="quoteForm.get('clientMobile')?.value"
         [clientEmail]="quoteForm.get('clientEmail')?.value"
+        [pdfUrl]="sharePdfUrl()"
         [documentType]="'cotizacion'"
-        (closed)="isShareModalOpen.set(false)"
+        (closed)="closeShareModal()"
       />
 
       <!-- Confirmation Dialog -->
@@ -1368,6 +1369,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
   isDesktopPreviewVisible = computed(() => true);
 
   isShareModalOpen = signal(false);
+  sharePdfUrl = signal('');
 
   // Toast notifications
   toastMessage = signal('');
@@ -1582,7 +1584,7 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       if (this.showConfirmDialog()) {
         this.cancelConfirm();
       } else if (this.isShareModalOpen()) {
-        this.isShareModalOpen.set(false);
+        this.closeShareModal();
       } else if (this.showPreview()) {
         this.showPreview.set(false);
       }
@@ -1874,6 +1876,15 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
     }
   }
 
+  closeShareModal(): void {
+    this.isShareModalOpen.set(false);
+    const url = this.sharePdfUrl();
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.sharePdfUrl.set('');
+    }
+  }
+
   openShareModal(): void {
     // Mark all fields as touched to show validation
     this.quoteForm.markAllAsTouched();
@@ -1894,6 +1905,12 @@ export class QuoteFormComponent implements OnInit, OnDestroy {
       next: (blob) => {
         this.isSaving.set(false);
         this.showToast('Cotización guardada y lista para compartir', 'success');
+
+        // Revoke previous URL if any, then create fresh one for the share modal
+        const prev = this.sharePdfUrl();
+        if (prev) URL.revokeObjectURL(prev);
+        this.sharePdfUrl.set(URL.createObjectURL(blob));
+
         this.isShareModalOpen.set(true);
 
         // If it was a new quote, we might need to update the form's dirty state
